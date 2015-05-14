@@ -1,6 +1,8 @@
-bin
+bin/*
 *~
 *.o
 *.out
 *.pyc
 *.x
+*_wrap.*
+*_module.py

@@ -1,0 +1,32 @@
+%module sim5lib_module
+%{
+    #define DEVICEFUNC  
+
+    /* the resulting C file should be built as a python extension */
+    //#define SWIG_FILE_WITH_INIT
+    /*  Includes the header in the wrapper code */
+    #include "sim5lib.h"
+%}
+
+%include cpointer.i
+%include carrays.i
+%array_class(int, intArray);
+%array_class(double, doubleArray);
+%pointer_class(int, intp);
+%pointer_class(double, doublep);
+
+
+// Some array helpers
+%inline %{
+    // create a connection array helper
+    // usage in python: G = connection()
+    double (*connection())[4][4] {
+        return (double (*)[4][4]) calloc(64,sizeof(double));
+    }
+%}
+
+%include "sim5config.h"
+%include "sim5const.h"
+%include "sim5kerr.h"
+%include "sim5raytrace.h"
+
