@@ -12,7 +12,6 @@
 #include "sim5config.h"
 #ifndef CUDA
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 #include "sim5math.h"
 #include "sim5kerr.h"
@@ -34,17 +33,36 @@ void sim5kerr_profile() {
 
 
 DEVICEFUNC
-void flat_metric(double a, double r, double m, sim5metric *metric)
+void flat_metric(double r, double m, sim5metric *metric)
 //*********************************************************
-// returns covariant Kerr metric g_\mu\nu
-// inputs: spin <a>, radius <r>, cos(theta) <m>
-// output: Kerr metric <metric>
+// returns covariant Minkowski metric \eta_\mu\nu in spherical coordinates 
+// inputs: radius <r>, cos(theta) <m>
+// output: Minkowski metric <metric>
 {
-    metric->a = a;
+    metric->a = 0.0;
     metric->r = r;
     metric->m = m;
-    metric->g00 = -1;
-    metric->g11 = 1;
+    metric->g00 = +1.0;
+    metric->g11 = -1.0;
+    metric->g22 = -r*r;
+    metric->g33 = -r*r*(1.-m*m); 
+    metric->g03 = 0.0;
+}
+
+
+
+DEVICEFUNC
+void flat_metric_contravariant(double r, double m, sim5metric *metric)
+//*********************************************************
+// returns contravariant Minkowski metric \eta_\mu\nu in spherical coordinates 
+// inputs: radius <r>, cos(theta) <m>
+// output: Minkowski metric <metric>
+{
+    metric->a = 0.0;
+    metric->r = r;
+    metric->m = m;
+    metric->g00 = -1.0;
+    metric->g11 = +1.0;
     metric->g22 = r*r;
     metric->g33 = r*r*(1.-m*m); 
     metric->g03 = 0.0;
@@ -55,7 +73,7 @@ void flat_metric(double a, double r, double m, sim5metric *metric)
 DEVICEFUNC
 void kerr_metric(double a, double r, double m, sim5metric *metric)
 //*********************************************************
-// returns covariant Kerr metric g_\mu\nu
+// returns covariant Kerr metric g_\mu\nu in spherical coordinates 
 // inputs: spin <a>, radius <r>, cos(theta) <m>
 // output: Kerr metric <metric>
 {
@@ -79,6 +97,32 @@ void kerr_metric(double a, double r, double m, sim5metric *metric)
 
 
 DEVICEFUNC
+void kerr_metric_contravariant(double a, double r, double m, sim5metric *metric)
+//*********************************************************
+// returns contravariant Kerr metric g^\mu\nu
+// inputs: spin <a>, radius <r>, cos(theta) <m>
+// output: Kerr metric <metric>
+{
+    double r2  = sqr(r);
+    double a2  = sqr(a);
+    double m2  = sqr(m);
+    double S   = r2 + a2*m2;
+    double SD  = S*(r2 - 2.*r + a2);  // = S*D
+    //double D = r2 - 2.*r + a2;
+    //double A = sqr(r2+a2) - a2*D*s2;
+    metric->a = a;
+    metric->r = r;
+    metric->m = m;
+    metric->g00 = -sqr(r2+a2)/SD + a2*(1.-m2)/S;  // =-A/SD
+    metric->g11 = (r2-2.*r+a2)/S; // =D/S
+    metric->g22 = 1./S;
+    metric->g33 = 1./S/(1.-m2) - a2/SD; 
+    metric->g03 = -2.*a*r/SD;
+}
+
+
+
+DEVICEFUNC
 void kerr_connection(double a, double r, double m, double G[4][4][4])
 //*********************************************************
 // returns Christoffel symbols for Kerr metric connection (Gamma^\mu_\alpha\beta)
@@ -87,8 +131,9 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
 // NOTE: Christoffel tensor Gamma^i_(jk) is symmetric in lower two indices (j,k).
 //       (!) This function only evaluates components of the tensor, where j<k and 
 //       multiplies the value of these coeficients by a factor of two.
-//       In this way, both summation over j=1..4,k=1..4 and over j=1..4,k=1..j
-//       will give the same result.
+//       In this way, both summation over j=1..4,k=1..4 and over j=1..4,k=j..4
+//       will give the same result; however, care must be taken when summing 
+//       Gamma Gamma^i_(jk) U^j V^k where factor 0.5 has to be used: 0.5*G[i][j][k]*(u[j]*v[k] + u[k]*v[j])
 {
     //prof_N++;    
     //clock_t start_t, end_t;
@@ -147,7 +192,7 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
    
 
 DEVICEFUNC
-void flat_connection(double a, double r, double m, double G[4][4][4])
+void flat_connection(double r, double m, double G[4][4][4])
 //*********************************************************
 // returns Christoffel symbols for metric connection (Gamma^\mu_\alpha\beta)
 // in the limit of M=0 and a=0 (in flat spacetime with spherical coordinates)
@@ -168,13 +213,38 @@ void flat_connection(double a, double r, double m, double G[4][4][4])
     G[3][2][3] = 2.0 * m/s;
 }
    
-
+/*
 DEVICEFUNC INLINE
-void Gamma(double G[4][4][4], double v[4], double result[4]) {
+void Gamma(double G[4][4][4], double V[4], double result[4]) 
+// *********************************************************
+// returns product of summation -G^i_(jk) V^j V^k - useful for parallel transport
+// (note the definition of G tensor components in symmetric indices)
+// inputs: Christoffel tensor <G>, vector <V>
+// output: a vector
+{
     int i,j,k;
     for (i=0;i<4;i++) {
         result[i] = 0.0;
-        for (j=0;j<4;j++) for (k=j;k<4;k++) result[i] += -G[i][j][k]*v[j]*v[k];
+        for (j=0;j<4;j++) for (k=j;k<4;k++) result[i] -= G[i][j][k]*V[j]*V[k];
+    }
+}
+*/
+
+
+DEVICEFUNC INLINE
+void Gamma(double G[4][4][4], double U[4], double V[4], double result[4]) 
+//*********************************************************
+// returns product of summation -G^i_(jk) U^j V^k
+// - this is useful for calculationg parallel transport of vector <V> along 
+//   a geodesic specified by tangent vector <U>, as it gives the derivative dV/d\lambda
+// - note the definition of G tensor components in symmetric indices
+// inputs: Christoffel tensor <G>, tanget vector <U> and transported vector <V>
+// output: derivative of V (dV/d\lambda)
+{
+    int i,j,k;
+    for (i=0;i<4;i++) {
+        result[i] = 0.0;
+        for (j=0;j<4;j++) for (k=j;k<4;k++) result[i] -= 0.5*G[i][j][k]*(U[j]*V[k] + U[k]*V[j]);
     }
 }
 
@@ -381,14 +451,19 @@ void tetrad_surface(sim5metric *m, double Omega, double V, double dhdr, sim5tetr
     double g33 = m->g33;
     double g03 = m->g03;
 
+    // get contra-variant metric components g^\mu\nu
+    sim5metric M;
+    kerr_metric_contravariant(m->a, m->r, m->m, &M);
+    
+
     // zero-radial-velocity surface tangent vector S0:
     // - get the components of space-like surface tangent vector S0 for an observer that 
     //   corotates with the fluid (has no radial component of velocity)
-    // - S0 is contained in [r,theta] plane and satisfies condition S.N=0
-    // - orientation is set such that the vector points in the positive radial direction
-    // c.f. Sadowski+2011, Eq. A.4 (signs differ)
-    double S0r = 1./sqrt(g11 + sqr(g11)/g22*sqr(dhdr));
-    double S0h = g11/g22*dhdr*S0r;
+    // - S0 is contained in [r,theta] plane and is oriented in the positive radial direction
+    // - obviously S = S0*[0,1,d\theta/dr,0], where condition S.S=1 fixes S0
+    double S0r = 1.0/sqrt(g11+g22*sqr(dhdr));
+    double S0h = S0r*dhdr;
+
     //fprintf(stderr, "S0.S0 = %e\n", g11*sqr(S0r)+g22*sqr(S0h));
     
     // compute quantity v (Sadowski+2011, Eq. A.10)
@@ -417,13 +492,17 @@ void tetrad_surface(sim5metric *m, double Omega, double V, double dhdr, sim5tetr
     //fprintf(stderr, "S.S = %e\n", dotprod(t->e[1],t->e[1],m));
     
     // surface normal vector N
-    // this spacelike vector lives in [r,theta] plane as satisfies N=[0,dF/dr,dF/dtheta,0], where F(r,theta)=0 defines the surface
+    // this spacelike vector lives in [r,theta] plane as satisfies 
+    //   N_\mu = grad F = [0,\partial{F}/\partial{r},\partial{F}/\partial{theta},0] = 
+    //   [0, d\theta/dr, -1, 0], 
+    //   where F(r,theta)=0 defines the surface
+    //   => N^\mu = N0*[0,g^11*d\theta/dr,-g^22,0]
     // orientation is set such that the vector points upward,
     // i.e. in the limit dhdr=0 it becomes same as ZAMO e[2] vector
     // c.f. Sadowski+2011, Eq. A.3 (signs differ)
     t->e[2][0] = 0.0; 
-    t->e[2][1] = dhdr;
-    t->e[2][2] = -1.0; 
+    t->e[2][1] = dhdr*(M.g11);
+    t->e[2][2] = -M.g22; 
     t->e[2][3] = 0.0; 
     vector_norm_to(t->e[2], m, 1.0);
     //fprintf(stderr, "N.N = %e\n", dotprod(t->e[2],t->e[2],m));
@@ -678,14 +757,15 @@ void photon_motion_constants(double a, double r, double m, double k[4], double* 
     // Mathematica's solution of "q2" for nh==sqr(k[2])/sqr(k[0])
     *Q = pow(a*(l-a*s2) + ((a2+r2)*(a2-a*l+r2))/D, 2.0) *
         (nh - (sqr(D*m)*(sqr(l)-a2*s2))/(-s2*pow(sqr(a2)-a*a2*l+sqr(r2)+a*l*(D-r2)+a2*(2.*r2-D*s2),2.0)));
-    if (isnan(*L)) fprintf(stderr,"#L=%e (%e/%e/%e)\n",*L,k[1],k[2],k[3]);
-    if (isnan(*Q)) fprintf(stderr,"#Q=%e (%e/%e/%e)\n",*Q,k[1],k[2],k[3]);
+
+    if (isnan(*L)) fprintf(stderr,"ERR (photon_motion_constants): L is NaN (%e, k=%e/%e/%e/%e)\n", *L, k[0], k[1], k[2], k[3]);
+    if (isnan(*Q)) fprintf(stderr,"ERR (photon_motion_constants): Q is NaN (%e, k=%e/%e/%e/%e)\n", *Q, k[0], k[1], k[2], k[3]);
 }
 
 
 
 DEVICEFUNC
-double photon_carter(sim5metric *metric, double k[4])
+double photon_carter_const(double k[4], sim5metric *metric)
 //*********************************************************
 // returns Carter constants for a null geodesic 
 {
@@ -696,6 +776,145 @@ double photon_carter(sim5metric *metric, double k[4])
     return sqr(kh) + sqr(kf)*m2/(1.-m2) - sqr(metric->a)*sqr(kt)*m2;
 }
 
+
+
+DEVICEFUNC
+complex double photon_wp_const(double k[4], double f[4], sim5metric *metric)
+// calculates components of Walker-Penrose (1970) constant 
+// following Connors, Piran, Stark (1980): kappa_wp = kappa1 - I*kappa2 = (A1 - I*A2)*(r - I*a*cos(theta))
+// => kappa1 = +r*A1 - a*cos(theta)*A2; kappa2 = -r*A2 - a*cos(theta)*A1
+// returns kappa_wp = kappa1 + I*kappa2
+// !! note the definition of kappa1 & kappa2, which is opposite to CPS(1980)
+{
+    double a = metric->a;
+    double r = metric->r;
+    double m = metric->m;
+    double s = sqrt(1.0-m*m);
+    
+    // evaluate Walker-Penrose constant components
+    double A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
+    double A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
+    double wp1 = +r*A1 - a*m*A2;
+    double wp2 = -r*A2 - a*m*A1;
+    
+    return wp1+_Complex_I*wp2;
+}
+
+
+DEVICEFUNC
+void photon_polarization_vector(double k[4], complex double wp, sim5metric *metric, double f[4])
+{
+    double a = metric->a;
+    double m = metric->m;
+    double r = metric->r;
+    double s = sqrt(1.0-m*m);
+    double ra2 = r*r + a*a;
+    double r2 = r*r;
+    double a2 = a*a;
+    double s2 = 1.0-m*m;
+
+    // assert that theta>0.0
+    if (s < 1e-14) {
+        s  = 1e-14;
+        s2 = 1e-07;
+        m  = sqrt(1.0-s2);
+    }
+
+    // obtain A1, A2 from the definition of Walker-Penrose constant
+    // see photon_wp_const() function
+    double A1 = (+r*creal(wp) - a*m*cimag(wp))/(r*r + a*a*m*m);
+    double A2 = (-r*cimag(wp) - a*m*creal(wp))/(r*r + a*a*m*m);
+
+    // f can be freely shifted by a multiple of k (f' = f + \alpha*k), therefore
+    // it has a freedom in one compoment and we can always set f in such a way 
+    // that its time-component will be zero (f[0]=0)
+    // then we can solve this set of equations
+    //   A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
+    //   A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
+    // along with the orthogonality condition
+    //   k.f = 0
+    // and we will obtain (Maple was used for that) the following for components of f
+    // note: using k.f=0 gives much simpler result than using f.f=1 for the third equation instead
+    f[0] = 0.0;
+    f[3] = (
+              + metric->g11*A1*k[1]*(s*r2*k[3] + s*a2*k[3] - s*a*k[0])
+              + metric->g22*A2*k[2]*(k[0] - a*s2*k[3])
+           ) / (
+             + sqr(k[0])*metric->g33*(s*k[3]*a)
+             + sqr(k[0])*metric->g03*(s*k[0]*a - s*r2*k[3] - s*a2*k[3] - a2*s*s2*k[3])
+             + sqr(k[1])*metric->g11*a*s*s2*(+ r2*k[3] + a2*k[3] - a*k[0])
+             + sqr(k[2])*metric->g22*(a2*a*s*s2*k[3] + r2*a*s*s2*k[3] - s*r2*k[0] - s*a2*k[0])
+             + sqr(k[3])*metric->g33*s*(k[3]*a*s2*r2 + k[3]*a2*a*s2 - k[0]*r2 - k[0]*a2 - a2*s2*k[0])
+             + sqr(k[3])*metric->g03*a*s*s2*(r2*k[0] + a2*k[0])
+           );
+    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]); 
+    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]); 
+
+    vector_norm_to(f, metric, 1.0);
+
+    /*
+    // f can be freely shifted by a multiple of k (f' = f + \alpha*k), therefore
+    // it has a freedom in one compoment and we can always set f in such a way 
+    // that its time-component will be zero (f[0]=0)
+    // then we can solve this set of equations
+    //   A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
+    //   A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
+    // along with the normalization condition
+    //   f.f = 1 
+    // and we will obtain (Maple was used for that) the following for components of f
+    f[0] = 0.0;
+    f[3] = (2.*g22*A2*s2*a*a2*k[2]*k[0]*k[3]-g22*A2*a2*k[2]*k[0]*k[0]-
+        2.*g11*s*s2*A1*a2*k[1]*r2*k[3]*k[0]-g22*A2*s2*s2*r2*k[2]*a2*k[3]*k[3]-
+        2.*g11*s*s2*A1*a2*a2*k[1]*k[3]*k[0]+g11*s*s2*A1*a*a2*k[1]*k[0]*k[0]-
+        g22*A2*s2*s2*a2*a2*k[2]*k[3]*k[3]+g11*s*s2*A1*a*k[1]*r2*r2*k[3]*k[3]+
+        2.*g22*A2*s2*r2*k[2]*k[0]*a*k[3]-g22*A2*r2*k[2]*k[0]*k[0]+
+        2.*g11*s*s2*A1*a*a2*k[1]*r2*k[3]*k[3]+g11*s*s2*A1*a2*a2*a*k[1]*k[3]*k[3]-
+        sqrt(-pow(a*k[0]*k[0]+a*a2*k[3]*k[3]*s2-a2*k[0]*k[3]*s2-a2*k[0]*k[3]+
+        a*k[3]*k[3]*r2*s2-k[0]*k[3]*r2,2.)*(-2.*g33*k[0]*k[0]*a2*s2*k[3]*k[3]*r2+
+        4.*g33*a*a2*s2*s2*k[3]*k[3]*k[3]*r2*k[0]-g11*s2*s2*s2*a2*k[1]*k[1]*r2*r2*k[3]*k[3]-
+        2.*g11*s2*s2*s2*a2*a2*k[1]*k[1]*r2*k[3]*k[3]+2.*g11*s2*s2*s2*a2*a2*a*k[1]*k[1]*k[3]*k[0]-
+        g22*s2*s2*s2*r2*r2*k[2]*k[2]*a2*k[3]*k[3]-2.*g22*s2*s2*s2*r2*k[2]*k[2]*a2*a2*k[3]*k[3]-
+        2.*g22*s2*r2*k[2]*k[2]*a2*k[0]*k[0]+2.*g22*s2*s2*a2*a2*a*k[2]*k[2]*k[0]*k[3]+
+        2.*g33*s2*s2*k[0]*a*k[3]*k[3]*k[3]*r2*r2-4.*g33*s2*s2*k[0]*k[0]*a2*k[3]*k[3]*r2+
+        2.*g33*s2*s2*s2*a*a2*k[3]*k[3]*k[3]*r2*k[0]+2.*g33*s2*k[0]*k[0]*k[0]*r2*k[3]*a+
+        2.*g11*s2*s2*s2*a*a2*k[1]*k[1]*r2*k[3]*k[0]+2.*g22*s2*s2*r2*r2*k[2]*k[2]*k[0]*a*k[3]+
+        4.*g22*s2*s2*r2*k[2]*k[2]*a*a2*k[0]*k[3]-g33*s2*s2*s2*a2*a2*a2*k[3]*k[3]*k[3]*k[3]-
+        g33*s2*k[0]*k[0]*k[0]*k[0]*a2-g11*s2*s2*s2*a2*a2*a2*k[1]*k[1]*k[3]*k[3]-
+        g11*s2*s2*s2*a2*a2*k[1]*k[1]*k[0]*k[0]-g22*s2*r2*r2*k[2]*k[2]*k[0]*k[0]-
+        g22*s2*s2*s2*a2*a2*a2*k[2]*k[2]*k[3]*k[3]-g22*s2*a2*a2*k[2]*k[2]*k[0]*k[0]-
+        g33*s2*k[0]*k[0]*r2*r2*k[3]*k[3]+2.*g33*s2*s2*k[0]*k[0]*k[0]*a*a2*k[3]-
+        g33*s2*s2*s2*a2*k[3]*k[3]*k[3]*k[3]*r2*r2-2.*g33*s2*s2*s2*a2*a2*k[3]*k[3]*k[3]*k[3]*r2+
+        2.*g33*s2*s2*s2*a2*a2*a*k[3]*k[3]*k[3]*k[0]-g33*s2*s2*s2*a2*a2*k[3]*k[3]*k[0]*k[0]+
+        A1*A1*a2*a2*g11*g22*k[2]*k[2]*s2+A1*A1*a2*a2*g11*g33*k[3]*k[3]*s2+
+        2.*A1*A1*a2*g11*g22*k[2]*k[2]*r2*s2+2.*A1*A1*a2*g11*g33*k[3]*k[3]*r2*s2+
+        A1*A1*g11*g22*k[2]*k[2]*r2*r2*s2+A1*A1*g11*g33*k[3]*k[3]*r2*r2*s2+
+        2.*A1*A2*a*a2*g11*g22*k[1]*k[2]*s*s2+2.*A1*A2*a*g11*g22*k[1]*k[2]*r2*s*s2+
+        A2*A2*a2*g11*g22*k[1]*k[1]*s2*s2+A2*A2*a2*g22*g33*k[3]*k[3]*s2*s2-
+        2.*A1*A1*a*a2*g11*g33*k[0]*k[3]*s2-2.*A1*A1*a*g11*g33*k[0]*k[3]*r2*s2+
+        A1*A1*a2*g11*g33*k[0]*k[0]*s2-2.*A2*A2*a*g22*g33*k[0]*k[3]*s2+A2*A2*g22*g33*k[0]*k[0]-
+        g33*k[0]*k[0]*a2*a2*s2*k[3]*k[3]+2.*g33*k[0]*k[0]*k[0]*a*a2*s2*k[3]+
+        2.*g33*a2*a2*a*s2*s2*k[3]*k[3]*k[3]*k[0]-4.*g33*a2*a2*s2*s2*k[3]*k[3]*k[0]*k[0])))/
+        ((g33*k[0]*k[0]*r2*r2*k[3]*k[3]+g33*k[0]*k[0]*a2*a2*k[3]*k[3]-
+        2.*g33*k[0]*k[0]*k[0]*a*a2*k[3]+g33*a2*a2*a2*s2*s2*k[3]*k[3]*k[3]*k[3]+
+        g22*r2*r2*k[2]*k[2]*k[0]*k[0]+g22*a2*a2*k[2]*k[2]*k[0]*k[0]+
+        g22*r2*r2*k[2]*k[2]*a2*s2*s2*k[3]*k[3]+2.*g22*r2*k[2]*k[2]*a2*a2*s2*s2*k[3]*k[3]-
+        2.*g22*a2*a2*a*k[2]*k[2]*k[0]*s2*k[3]+g11*a2*s2*s2*k[1]*k[1]*r2*r2*k[3]*k[3]+
+        2.*g11*a2*a2*s2*s2*k[1]*k[1]*r2*k[3]*k[3]-2.*g33*k[0]*a*s2*k[3]*k[3]*k[3]*r2*r2-
+        2.*g11*a2*a2*a*s2*s2*k[1]*k[1]*k[3]*k[0]-4.*g33*k[0]*a*a2*s2*k[3]*k[3]*k[3]*r2+
+        4.*g33*k[0]*k[0]*a2*s2*k[3]*k[3]*r2-2.*g33*a*a2*s2*s2*k[3]*k[3]*k[3]*r2*k[0]+
+        g33*k[0]*k[0]*k[0]*k[0]*a2-2.*g22*r2*r2*k[2]*k[2]*k[0]*a*s2*k[3]-
+        4.*g22*r2*k[2]*k[2]*k[0]*a*a2*s2*k[3]-2.*g11*a*a2*s2*s2*k[1]*k[1]*r2*k[3]*k[0]+
+        g22*a2*a2*a2*k[2]*k[2]*s2*s2*k[3]*k[3]+2.*g22*r2*k[2]*k[2]*k[0]*k[0]*a2+
+        g11*a2*a2*a2*s2*s2*k[1]*k[1]*k[3]*k[3]+g11*a2*a2*s2*s2*k[1]*k[1]*k[0]*k[0]+
+        2.*g33*k[0]*k[0]*r2*k[3]*k[3]*a2-2.*g33*k[0]*k[0]*k[0]*r2*k[3]*a-
+        2.*g33*k[0]*a2*a2*a*s2*k[3]*k[3]*k[3]+4.*g33*k[0]*k[0]*a2*a2*s2*k[3]*k[3]-
+        2.*g33*k[0]*k[0]*k[0]*a*a2*s2*k[3]+g33*a2*s2*s2*k[3]*k[3]*k[3]*k[3]*r2*r2+
+        2.*g33*a2*a2*s2*s2*k[3]*k[3]*k[3]*k[3]*r2-2.*g33*a2*a2*a*s2*s2*k[3]*k[3]*k[3]*k[0]+
+        g33*a2*a2*s2*s2*k[3]*k[3]*k[0]*k[0])*s);
+    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]); 
+    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]); 
+    */
+}
 
 
 

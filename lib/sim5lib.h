@@ -11,20 +11,18 @@
 #ifndef _SIM5LIB_H
 #define _SIM5LIB_H
 
-#include <math.h>
-#include <gsl/gsl_spline.h>
-#include <gsl/gsl_integration.h>
+#include "sim5include.h"
 #include "sim5config.h"
 #include "sim5const.h"
 #include "sim5utils.h"
 #include "sim5math.h"
-//#include "sim5rootfinding.h"
+#include "sim5roots.h"
 #include "sim5kerr.h"
 #include "sim5raytrace.h"
-//#include "sim5elliptic.h"
-//#include "sim5polyroots.h"
-//#include "sim5kerr-geod.h"
-//#include "sim5disk-nt.h"
+#include "sim5elliptic.h"
+#include "sim5polyroots.h"
+#include "sim5kerr-geod.h"
+#include "sim5disk-nt.h"
 
 
 #endif

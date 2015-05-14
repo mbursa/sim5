@@ -75,25 +75,25 @@ void sort_array_f(float *array, int N)
 
 void* array_alloc(size_t capacity, size_t element_size)
 {
-    long size_total = element_size*capacity    // space allocated for elements
-                      + sizeof(long)           // space for info about size of stored elements 
-                      + sizeof(long)           // space for info about allocated capacity
-                      + sizeof(long);          // space for info about stored element count
+    size_t size_total = element_size*capacity    // space allocated for elements
+                      + sizeof(size_t)           // space for info about size of stored elements 
+                      + sizeof(size_t)           // space for info about allocated capacity
+                      + sizeof(size_t);          // space for info about stored element count
     
     void* ptr = malloc(size_total);
     memset(ptr, '\0', size_total);
 
     // store element size    
-    *(long*)(ptr) = element_size;
-    ptr += sizeof(long);
+    *(size_t*)(ptr) = element_size;
+    ptr += sizeof(size_t);
 
     // store allocated capacity
-    *(long*)(ptr) = capacity;
-    ptr += sizeof(long);
+    *(size_t*)(ptr) = capacity;
+    ptr += sizeof(size_t);
 
     // store element count
-    *(long*)(ptr) = 0;
-    ptr += sizeof(long);
+    *(size_t*)(ptr) = 0;
+    ptr += sizeof(size_t);
 
     return ptr;
 }
@@ -101,52 +101,52 @@ void* array_alloc(size_t capacity, size_t element_size)
 
 void array_free(void* ptr)
 {
-    ptr -= 3*sizeof(long);
+    ptr -= 3*sizeof(size_t);
     free(ptr);
 }
 
 
 void* array_realloc(void* array, size_t new_capacity)
 {
-    long* count = (long*)(array-1*sizeof(long));
-    long* capa  = (long*)(array-2*sizeof(long));
-    long* esize = (long*)(array-3*sizeof(long));
+    size_t* count = (size_t*)(array-1*sizeof(size_t));
+    size_t* capa  = (size_t*)(array-2*sizeof(size_t));
+    size_t* esize = (size_t*)(array-3*sizeof(size_t));
     
-    long size_total = new_capacity * (*esize)    // space allocated for elements
-                      + sizeof(long)             // space for info about size of stored elements 
-                      + sizeof(long)             // space for info about allocated capacity
-                      + sizeof(long);            // space for info about stored element count
+    size_t size_total = new_capacity * (*esize)    // space allocated for elements
+                      + sizeof(size_t)             // space for info about size of stored elements 
+                      + sizeof(size_t)             // space for info about allocated capacity
+                      + sizeof(size_t);            // space for info about stored element count
     
     (*capa)  = new_capacity;
     (*count) = min(*count, new_capacity);
 
-    void* src_ptr = (array-3*sizeof(long));
+    void* src_ptr = (array-3*sizeof(size_t));
     src_ptr = realloc(src_ptr, size_total);
-    return src_ptr+3*sizeof(long);
+    return src_ptr+3*sizeof(size_t);
 }
 
 
 inline 
 long array_count(void* array)
 {
-    array -= 1*sizeof(long);
-    return *(long*)(array);
+    array -= 1*sizeof(size_t);
+    return *(size_t*)(array);
 }
 
 
 inline 
 long array_capa(void* array)
 {
-    array -= 2*sizeof(long);
-    return *(long*)(array);
+    array -= 2*sizeof(size_t);
+    return *(size_t*)(array);
 }
 
 
 inline 
 size_t array_esize(void* array)
 {
-    array -= 3*sizeof(long);
-    return *(long*)(array);
+    array -= 3*sizeof(size_t);
+    return *(size_t*)(array);
 }
 
 
@@ -154,15 +154,15 @@ void array_push(void** array_ptr, const void* data)
 {
     void* array = *array_ptr;
 
-    long* count = (long*)(array-1*sizeof(long));
-    long* capa  = (long*)(array-2*sizeof(long));
-    long* esize = (long*)(array-3*sizeof(long));
+    size_t* count = (size_t*)(array-1*sizeof(size_t));
+    size_t* capa  = (size_t*)(array-2*sizeof(size_t));
+    size_t* esize = (size_t*)(array-3*sizeof(size_t));
 
     if (*count+1 > *capa) {
         array = *array_ptr = array_realloc(array, 2*(*capa));
-        count = (long*)(array-1*sizeof(long));
-        capa  = (long*)(array-2*sizeof(long));
-        esize = (long*)(array-3*sizeof(long));
+        count = (size_t*)(array-1*sizeof(size_t));
+        capa  = (size_t*)(array-2*sizeof(size_t));
+        esize = (size_t*)(array-3*sizeof(size_t));
     }
 
     void* dptr = array + (*esize)*(*count);
@@ -194,10 +194,10 @@ void array_push_double(void** array_ptr, const double data)
 
 int  array_exists(void* array, const void* data)
 {
-    long count = *(long*)(array-1*sizeof(long));
-    long esize = *(long*)(array-3*sizeof(long));
+    size_t count = *(size_t*)(array-1*sizeof(size_t));
+    size_t esize = *(size_t*)(array-3*sizeof(size_t));
     
-    long i;
+    size_t i;
     for (i=0; i<count; i++) {
         if (memcmp(array, data, esize) == 0) return 1;
         array += esize;
@@ -215,8 +215,8 @@ void array_push_if_not_exists(void** array_ptr, const void* data)
 
 void array_reverse(void* array)
 {
-    long count = *(long*)(array-1*sizeof(long));
-    long esize = *(long*)(array-3*sizeof(long));
+    long count = *(size_t*)(array-1*sizeof(size_t));
+    long esize = *(size_t*)(array-3*sizeof(size_t));
     
     void* frst_ptr = array;
     void* last_ptr = array + esize*(count-1);

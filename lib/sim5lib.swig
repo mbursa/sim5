@@ -14,7 +14,8 @@
 %array_class(double, doubleArray);
 %pointer_class(int, intp);
 %pointer_class(double, doublep);
-
+//%pointer_functions(double ,double_ptr);  // this vill allow to access content of general 'double *' variables
+%array_functions(double, double_array);  // will allow to access content of general 'double *' arrays
 
 // Some array helpers
 %inline %{
@@ -29,4 +30,15 @@
 %include "sim5const.h"
 %include "sim5kerr.h"
 %include "sim5raytrace.h"
+%include "sim5kerr-geod.h"
 
+
+%pythoncode %{
+def vector(components):
+    v  = doubleArray(4)
+    v[0] = components[0]
+    v[1] = components[1]
+    v[2] = components[2]
+    v[3] = components[3]
+    return v
+%}

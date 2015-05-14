@@ -12,23 +12,40 @@
 #ifndef _SIM5_RAYTRACE_H
 #define _SIM5_RAYTRACE_H
 
-typedef struct raytrace_data {
-    long pass;              // number of passes
+// options for raytracing
+#define RTOPT_NONE              0         // option for default actions
+#define RTOPT_FLAT              1         // assumes Minkowski (flat) metric instead of Kerr
+#define RTOPT_POLARIZATION      2         // track change of polarization vector
 
-    double Q;               // Carter constant for the initial direction
-    double K1,K2;           // Wolker-Penrose constant (Kwp = K1 + iK2)
-    
+
+typedef struct raytrace_data {
+    int opt_gr;             // the metric: 1=Kerr metric, 0=flat metric
+    int opt_pol;            // polarization: 1=follow transport of f, 0=ignore f
+    double step_epsilon;    // step size control factor (note: precision ~ step^2)
+
+    double bh_spin;         // black hole spin
+    double E;               // initial motion constant - energy (k_t)
+    double Q;               // initial motion constant - Carter constant
+    complex double WP;      // Walker-Penrose constant (K_wp = wp1 + i*wp2)
+
+    // runtime variables    
+    int pass;               // number of passes to raytrace() routine (steps along geodesics)
+    int refines;            // number of refinements (recursive calls within raytrace())
+    double dk[4];           // derivative of momentum vector in the last step
+    double df[4];           // derivative of polarization vector in the last step
     double kt;              // motion constant k_t in the last step
-    double kf;              // motion constant k_\phi in the last step
     float error;            // fractional error in the last step
 } raytrace_data;
 
 
 DEVICEFUNC
-void kerr_raytrace_prepare(double bh_spin, double x[4], double k[4], double dk[4], double f[4], raytrace_data* rtd);
+void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], double presision_factor, int options, raytrace_data* rtd);
 
 DEVICEFUNC
-void kerr_raytrace(double bh_spin, double x[4], double k[4], double dk[4], double f[4], double *step, raytrace_data* rtd);
+void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data* rtd);
+
+DEVICEFUNC
+double raytrace_error(double x[4], double k[4], double f[4], raytrace_data* rtd);
 
 
 #endif

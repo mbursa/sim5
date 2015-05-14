@@ -13,6 +13,10 @@
 #define _SIM5CONST_H
 
 
+#define TINY                1e-40                // numerical convenince constant
+
+
+
 // sim5 standard unit system is CGS (cm,g,s)
 #define grav_radius         1.476716e+05         // gravitational radius GM/c2 of Sun [cm]
 #define speed_of_light      2.997925e+10         // speed of light [cm/s]
@@ -25,6 +29,7 @@
 #define mass_electron       9.109382e-28         // mass of electron [g]
 #define solar_mass          1.988920e+33         // solar mass [g]
 #define grav_const          6.673000e-08         // gravitational constant [cm3 g-1 s-2]
+#define planck_h            6.626069e-27         // planck constant [erg.s]
 
 // astrophysical constants
 #define Mdot_Edd        2.225475942e+18      // Eddington mass accretion rate [g/s * (M/Msun)]   -- 64*pi*(mass of sun)*G/(speed of light)/(kappa_es); kappa_es=(0.20*(1+X)cm^2/g; X=hydrogen mass fraction (X=1.0)

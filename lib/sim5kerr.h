@@ -29,19 +29,25 @@ typedef struct sim5tetrad sim5tetrad;
 
 
 DEVICEFUNC
-void flat_metric(double a, double r, double m, sim5metric *metric);
+void flat_metric(double r, double m, sim5metric *metric);
+
+DEVICEFUNC
+void flat_metric_contravariant(double r, double m, sim5metric *metric);
 
 DEVICEFUNC
 void kerr_metric(double a, double r, double m, sim5metric *metric);
 
 DEVICEFUNC
-void kerr_connection(double a, double r, double m, double G[4][4][4]);
+void kerr_metric_contravariant(double a, double r, double m, sim5metric *metric);
 
 DEVICEFUNC
-void flat_connection(double a, double r, double m, double G[4][4][4]);
+void flat_connection(double r, double m, double G[4][4][4]);
+
+DEVICEFUNC
+void kerr_connection(double a, double r, double m, double G[4][4][4]);
 
 DEVICEFUNC INLINE
-void Gamma(double G[4][4][4], double v[4], double result[4]);
+void Gamma(double G[4][4][4], double U[4], double V[4], double result[4]);
 
 DEVICEFUNC INLINE
 void vector_covariant(double V1[4], double V2[4], sim5metric* m);
@@ -118,6 +124,13 @@ DEVICEFUNC
 void photon_motion_constants(double a, double r, double m, double k[4], double* L, double* Q);
 
 DEVICEFUNC
-double photon_carter(sim5metric *metric, double k[4]);
+double photon_carter_const(double k[4], sim5metric *metric);
+
+DEVICEFUNC
+complex double photon_wp_const(double k[4], double f[4], sim5metric *metric);
+
+DEVICEFUNC
+void photon_polarization_vector(double k[4], complex double wp, sim5metric *metric, double f[4]);
+
 
 
