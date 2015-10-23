@@ -15,6 +15,9 @@
 
 #define TINY                1e-40                // numerical convenince constant
 
+#define TRUE                1                    // bool TRUE constant
+#define FALSE               0                    // bool FALSE constant
+
 
 
 // sim5 standard unit system is CGS (cm,g,s)
