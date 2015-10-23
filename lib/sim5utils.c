@@ -237,3 +237,81 @@ void array_reverse(void* array)
 }
 
 
+
+char* key_value_get(const char *string, const char *key) 
+{
+    static char value[256];
+    char* p;
+    
+    if ((!string) || (!key)) return NULL;    
+
+    // make local copy of the string (segfault comes othervise)
+    char* string_copy = (char*)malloc(strlen(string)+1);
+    strcpy (string_copy, string);
+
+    for (p = strtok(string_copy,","); p != NULL; p = strtok(NULL, ",")) {
+        if ((strncmp(p, key, strlen(key))==0) && (p[strlen(key)]=='=')) {
+            p += strlen(key) + 1;
+            strncpy(value, p, sizeof(value));
+            free(string_copy);
+            return value;
+        }
+    }
+
+    // if no match    
+    free(string_copy);
+    return NULL;
+}
+
+
+
+
+#define MAXTOKENS       1024
+#define MAXLINE         8096     // fgets buff
+#define MINLEN          3        // skip lines shorter as
+
+// split string into tokens, return token array
+char **split(char *string, char *delim) {
+    char **tokens = NULL;
+    char *working = NULL;
+    char *token = NULL;
+    int idx = 0;
+
+    tokens  = malloc(sizeof(char *) * MAXTOKENS);
+    if(tokens == NULL) return NULL;
+    working = malloc(sizeof(char) * strlen(string) + 1);
+    if(working == NULL) return NULL;
+
+    // to make sure, copy string to a safe place
+    strcpy(working, string);
+    for(idx = 0; idx < MAXTOKENS; idx++) tokens[idx] = NULL;
+
+    token = strtok(working, delim);
+    idx = 0;
+
+    // always keep the last entry NULL termindated
+    while((idx < (MAXTOKENS - 1)) && (token != NULL)) {
+        tokens[idx] = malloc(sizeof(char) * strlen(token) + 1);
+        if(tokens[idx] != NULL) {
+            strcpy(tokens[idx], token);
+            idx++;
+            token = strtok(NULL, delim);
+        }
+    }
+
+    free(working);
+    return tokens;
+}
+
+
+
+long getlinecount(FILE* f) {
+    long fpos = ftell(f);
+    char line[8192];
+    long result = 0;
+    fseek(f,0,SEEK_SET);
+    while (fgets(line, 8192, f) != NULL) result++; 
+    fseek(f,fpos,SEEK_SET);
+    return result;
+}
+    
