@@ -12,10 +12,10 @@
 #ifndef _SIM5DISKNT_H
 #define _SIM5DISKNT_H
 
-#define DISK_NT_OPTION_LUMINOSITY      1
 
+#define DISK_NT_OPTION_LUMINOSITY     1
 
-int disk_nt_setup(double M, double a, double mdot_L, double alpha, int _options);
+int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int options);
 void disk_nt_finish();
 double disk_nt_r_min();
 double disk_nt_flux(double r);

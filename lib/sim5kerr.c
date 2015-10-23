@@ -31,7 +31,6 @@ void sim5kerr_profile() {
 }
 
 
-
 DEVICEFUNC
 void flat_metric(double r, double m, sim5metric *metric)
 //*********************************************************
@@ -337,7 +336,7 @@ void tetrad_zamo(sim5metric *m, sim5tetrad *t)
     t->e[3][2] = 0.0;
     t->e[3][3] = 1./sqrt(m->g33);
     
-    t->m = *m;
+    t->metric = *m;
 }
 
 
@@ -381,7 +380,7 @@ void tetrad_radial(sim5metric *m, double v_r, sim5tetrad *t)
     t->e[3][2] = 0.0; 
     t->e[3][3] = 1./sqrt(m->g33);
     
-    t->m = *m;
+    t->metric = *m;
 }
 
 
@@ -427,7 +426,7 @@ void tetrad_azimuthal(sim5metric *m, double Omega, sim5tetrad *t)
     t->e[3][2] = 0.0; 
     t->e[3][3] = t->e[3][0] * (-k1/k2);
     
-    t->m = *m;
+    t->metric = *m;
 }
 
 
@@ -523,7 +522,7 @@ void tetrad_surface(sim5metric *m, double Omega, double V, double dhdr, sim5tetr
     //fprintf(stderr, "K.S = %e\n", dotprod(t->e[3],t->e[1],m));
     //fprintf(stderr, "N.S = %e\n", dotprod(t->e[2],t->e[1],m));
     
-    t->m = *m;
+    t->metric = *m;
 }
 
 
@@ -537,10 +536,10 @@ void bl2on(double Vin[4], double Vout[4], sim5tetrad* t)
 // MATH: V^(a) = e^(a)_\mu * V^\mu, where e^(a)_\mu = e^\nu_(b) * g_\mu\nu * n^ab
 //       V^(a) = dotprod(e_(b)^\mu, Vin^\mu) * n^ab
 {
-    Vout[0] = -dotprod(t->e[0], Vin, &t->m);
-    Vout[1] = +dotprod(t->e[1], Vin, &t->m);
-    Vout[2] = +dotprod(t->e[2], Vin, &t->m);
-    Vout[3] = +dotprod(t->e[3], Vin, &t->m);
+    Vout[0] = -dotprod(t->e[0], Vin, &t->metric);
+    Vout[1] = +dotprod(t->e[1], Vin, &t->metric);
+    Vout[2] = +dotprod(t->e[2], Vin, &t->metric);
+    Vout[3] = +dotprod(t->e[3], Vin, &t->metric);
 }
 
 
@@ -1051,7 +1050,9 @@ void ortho_tetrad_U_phi_r_motion(
 // - puts z-vector oriented along decreasing theta (goes "upwards" from eq plane)
 // - puts y-vector oriented along increasing phi
 {
+return;
 // orientation of vecotrs is unclear
+
 /*
     double k1 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + U[0]*(2.*g03*U[3]+g00*U[0]))); 
     double k3 = sqrt(fabs(g33*sqr(U[3])                 + U[0]*(2.*g03*U[3]+g00*U[0])));

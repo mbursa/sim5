@@ -22,7 +22,7 @@ typedef struct sim5metric sim5metric;
 
 struct sim5tetrad {
     double e[4][4];
-    sim5metric m;
+    sim5metric metric;
 };
 typedef struct sim5tetrad sim5tetrad;
 

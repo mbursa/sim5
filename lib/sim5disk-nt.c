@@ -8,6 +8,10 @@
 //    (C) 2014 Michal Bursa
 //************************************************************************
 
+//! \file sim5disk-nt.c
+//! Thin disk routines
+//!
+//! Provides routines for thin disk.
 
 
 
@@ -28,13 +32,13 @@ int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _optio
     options    = _options;
     if (options & DISK_NT_OPTION_LUMINOSITY) {
         disk_mdot = mdot_or_L;
-        double find_mdot_for_luminosity(double L0);
-        disk_mdot = find_mdot_for_luminosity(mdot_or_L);
-        fprintf(stderr,"(disk-nt) final mdot for L=%.5f: mdot=%.5f (%.6e 10^18 g/s)\n", mdot_or_L, disk_mdot, disk_mdot*bh_mass*Mdot_Edd/1e18);
+        double disk_nt_find_mdot_for_luminosity(double L0);
+        disk_mdot = disk_nt_find_mdot_for_luminosity(mdot_or_L);
+        //fprintf(stderr,"(disk-nt) final mdot for L=%.5f: mdot=%.5f (%.6e 10^18 g/s)\n", mdot_or_L, disk_mdot, disk_mdot*bh_mass*Mdot_Edd/1e18);
     }
     else {
         disk_mdot = mdot_or_L;
-        fprintf(stderr,"(disk-nt) mdot set to %.5f: (%.6e 10^18 g/s; lum=%.5f)\n", disk_mdot, disk_mdot*bh_mass*Mdot_Edd/1e18, disk_nt_lum());
+        //fprintf(stderr,"(disk-nt) mdot set to %.5f: (%.6e 10^18 g/s; lum=%.5f)\n", disk_mdot, disk_mdot*bh_mass*Mdot_Edd/1e18, disk_nt_lum());
     }
     return 0;
 }
@@ -47,6 +51,7 @@ void disk_nt_finish()
 
 
 
+//! 
 double disk_nt_r_min()
 {
     double a = bh_spin;
@@ -61,8 +66,19 @@ double disk_nt_r_min()
 
 
 double disk_nt_flux(double r)
+//! Gets local flux at given radius for Novikov-Thorne accretion disk.
+//! Provides radial radiation flux dependence for Novikov-Thorne accretion disk.
+//! * formulae based on Page&Thorne(1974) http://adsabs.harvard.edu/abs/1974ApJ...191..499P
+//! * output: 
+//! * note: the result is valid for BH mass of unit M_sun and Eddington accretion rate;
+//!       it shall be adjusted for actuall BH mass and acc rate following the scaling
+//!       F ~ mdot/m, where m=M/M_sun and mdot=Mdot/(M/M_sun*Mdot_Edd)
+//!
+//! @param r radius of emission [GM/c2]
+//!
+//! @result Total outgoing flux through one side of the disk [erg cm-2 s-1]
 {
-    if (r <= disk_rms) return 1e-40;
+    if (r <= disk_rms) return 0.0;
     double a = bh_spin;
     double x=sqrt(r);
     double x0,x1,x2,x3;
@@ -71,17 +87,28 @@ double disk_nt_flux(double r)
     x2=+2.*cos(1./3.*acos(a)+M_PI/3.);
     x3=-2.*cos(1./3.*acos(a));
     double f0,f1,f2,f3,F;
+    // PT74 (eq.15n)
     f0=x-x0-1.5*a*log(x/x0);
     f1=3.*sqr(x1-a)/(x1*(x1-x2)*(x1-x3))*log((x-x1)/(x0-x1));
     f2=3.*sqr(x2-a)/(x2*(x2-x1)*(x2-x3))*log((x-x2)/(x0-x2));
     f3=3.*sqr(x3-a)/(x3*(x3-x1)*(x3-x2))*log((x-x3)/(x0-x3));
     F = 1./(4.*M_PI*r) * 1.5/(x*x*(x*x*x-3.*x+2.*a)) * (f0-f1-f2-f3);
-    return 9.1721376255e+28 * F * disk_mdot/bh_mass;
+
+    // in Newtonian limit flux is F = 3/(8pi) * G*M*Mdot/r^3 = 3*x^3/(8pi) G^-2*Mdot*M^-2*c^6
+    // where x=r/(GM/c2), m=M/M_sun, mdot=Mdot/(M/M_sun*Mdot_Edd), r=GM/c2*x; Mdot_Edd is Eddington acc rate for BH of
+    // F ~ mdot/m * Mdot_Edd * G^-2 * c^6 * M_sun^-2 [kg s^-3] = mdot/m * 9.172138e+28 [erg cm^-2 s^-1]
+    // (Mdot_Edd*gram2kg)/sqr(grav_const)*sqr3(speed_of_light2)/sqr(solar_mass)*joule2erg/msq2cmsq = 9.1721376255e+28
+
+    return 9.1721376255e+28 * F * disk_mdot/bh_mass; // [erg cm^-2 s^-1]
 }
 
 
 
 double disk_nt_lum()
+//! Gets total disk luminosity.
+//! Luminosity is obtained by integrating local flux over the surface area _without_ relativistic corrections.
+//! ```L = 2*2pi \int F r dr```
+//! @result Total disk luminosity through both surfaces [erg s-1]
 {
     const float disk_rmax = 100000.;
     double r1;
@@ -91,14 +118,14 @@ double disk_nt_lum()
     for (r1=disk_rms; r1<disk_rmax; r1*=1.005) nflux++;
 
     double* flux[2];
-    flux[0] = (double*) calloc(2*nflux, sizeof(double));
-    flux[1] = (double*) calloc(2*nflux, sizeof(double));
-    nflux=0;
+    flux[0] = (double*) calloc(nflux, sizeof(double));
+    flux[1] = (double*) calloc(nflux, sizeof(double));
 
-    for(r1=disk_rms;r1<disk_rmax;r1*=1.005) {
-        flux[0][nflux] = r1*bh_mass*grav_radius; // radius in [cm]
-        flux[1][nflux] = 2.0*disk_nt_flux(r1); // flux in [erg cm-2 s-1];
-        nflux++;
+    int i = 0;
+    for(r1=disk_rms; i<nflux; r1*=1.005) {
+        flux[0][i] = r1*bh_mass*grav_radius; // radius in [cm]
+        flux[1][i] = 2.0*disk_nt_flux(r1); // double-sided flux in [erg cm-2 s-1];
+        i++;
     }
 
     gsl_spline *splineF;
@@ -248,7 +275,7 @@ void disk_nt_dump()
 
 
 
-double find_mdot_for_luminosity(double L0) {
+double disk_nt_find_mdot_for_luminosity(double L0) {
     double L;
 
     double fce(double xmdot) {
@@ -259,5 +286,6 @@ double find_mdot_for_luminosity(double L0) {
     int res = rtbis(0.0, 100.0, 1e-6, fce, &L);
     return (res) ? L : 0.0;
 }   
+
 
 
