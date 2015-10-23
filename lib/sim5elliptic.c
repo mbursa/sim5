@@ -361,6 +361,7 @@ double elliptic_e_sin(double sin_phi, double m)
 // functions RJ and RF . 
 // note: the sign convetion of n is the same as in Mathematica
 // The argument ranges are 0 <= phi <= pi/2; 0 <= sqrt(m)*sin(phi) <= 1
+// complete integral: phi=pi/2
 DEVICEFUNC
 double elliptic_pi_complete(double n, double m)
 {
@@ -484,6 +485,7 @@ double jacobi_icn1(double z, double m)
     if (fabs(m-0.0)<1e-8) return acos(z);
     #ifndef CUDA
     if (fabs(z)>1.0) error("jacobi_icn1: z>1 (%.10e)", z);
+    if (m>=1.0) error("jacobi_icn: x<0 and m>=1.0");
     #endif
     double z2 = z*z;
     return sqrt(1-z2) * rf(z2, 1.0 - m*(1.-z2), 1.0);
@@ -496,13 +498,13 @@ double jacobi_icn1(double z, double m)
 DEVICEFUNC INLINE
 double jacobi_icn(double z, double m)
 {
-    if (z>=0.0) {
+    if (z==0.0) {
+        return elliptic_k(m);
+    } else
+    if (z>0.0) {
         return jacobi_icn1(z,m);
     } else {
-        #ifndef CUDA
-        if (m>=1.0) error("jacobi_icn: x<0 and m>=1.0");
-        #endif
-        return 2.*jacobi_icn1(0,m)-jacobi_icn1(z,m);
+        return 2.*elliptic_k(m)-jacobi_icn1(-z,m);
     }
 }
 
@@ -1007,7 +1009,7 @@ double integral_R_rp_re(double a, double b, double c, double d, double p, double
 
 DEVICEFUNC
 double integral_R_rp_re_inf(double a, double b, double c, double d, double p)
-// int_a^X 1/[(x-p)*sqrt((x-a)(x-b)(x-c)(x-d))]
+// int_a^infty 1/[(x-p)*sqrt((x-a)(x-b)(x-c)(x-d))]
 // infinity > a > b > c > d
 // Eq. 258.39 (Byrd & Friedman)
 {
@@ -1118,15 +1120,20 @@ double integral_T_m2(double a2, double b2, double X)
 DEVICEFUNC INLINE
 double integral_T_mp(double a2, double b2, double p, double X)
 // int_X^b 1/[(p-x^2)*sqrt((a^2+x^2)(b^2-x^2))]
-// b > X >= 0 
+// -b <= X <= +b 
 // Eq. 213.02 (Byrd & Friedman)
 {
     #ifndef CUDA
-	if ((X<0)||(X>sqrt(b2))) error("integral_T_mp: invalid input ((X<0)||(X>b))");
+	if (fabs(X) > sqrt(b2)) error("integral_T_mp: invalid input ((X<0)||(X>b))");
 	if (p==b2) error("integral_T_mp: invalid input (p==b2)");//{fprintf(stderr,"p==b2\n"); return 0.0;}
     #endif
 	double m = b2/(a2+b2);	
-	return 1./sqrt(a2+b2)/(p-b2) * elliptic_pi_cos(X/sqrt(b2), b2/(b2-p), m);
+    double n = b2/(b2-p);
+
+    if (X >= 0.0) 
+        return 1./sqrt(a2+b2)/(p-b2) * elliptic_pi_cos(X/sqrt(b2), n, m);
+    else
+        return 1./sqrt(a2+b2)/(p-b2) * (2.*elliptic_pi_complete(n, m) - elliptic_pi_cos(-X/sqrt(b2), n, m));
 }
 
 
