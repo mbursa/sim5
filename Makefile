@@ -1,7 +1,7 @@
-CFLAGS = -Wextra -O3 -fPIC -Ilib -Llib
+CFLAGS = -Wall -Wextra -Wno-unused-parameter -O3 -fPIC -Ilib -Llib
 LFLAGS = -lm -lgsl -lgslcblas
 
-default: sim5lib
+default: lib
 
 clean:
 	@rm -f *.o lib/*.o bin/*
@@ -10,15 +10,20 @@ clean:
 #%.o: %.c
 #	gcc -o $@ $(CFLAGS) -c $<
 
-sim5lib: sim5lib-c sim5lib-python
+all: lib python export
 	@echo "done"
 
-sim5lib-c: 
-	@rm -f lib/*.o
+lib: lib-clean
 	gcc -c lib/sim5lib.c -o lib/sim5lib.o $(CFLAGS) $(LFLAGS)
 
+cuda: lib-clean
+	nvcc -arch=sm_35 -Ilib -Llib -O3 -dc lib/sim5lib.cu
 
-sim5lib-python: sim5lib-c
+lib-clean:
+	echo "BCleaning..."
+	@rm -f lib/*.o
+
+python: lib
 	swig -python -w314 lib/sim5lib.swig
 	mv lib/sim5lib_module.py bin/sim5lib_module.py
 	sed -i "s/'_sim5lib_module'/'sim5lib'/g" bin/sim5lib_module.py
@@ -28,23 +33,31 @@ sim5lib-python: sim5lib-c
 #	rm -f ./*.o lib/lib/*_wrap.c
 
 
-sim5lib-export: 
-	echo Compiling for export
-	@rm -f lib/sim5lib-full.h
-	@for i in `cat lib/sim5lib.h | grep -e '^\#include ".*.h"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat lib/$$i >> lib/sim5lib-full.h; done
-	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//' lib/sim5lib-full.h
-	@rm -f lib/sim5lib-full.c
-	@echo "#include \"sim5lib-full.h\"" > lib/sim5lib-full.c
-	@for i in `cat lib/sim5lib.c | grep -e '^\#include ".*.c"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat lib/$$i >> lib/sim5lib-full.c; done
-	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//;s/    / /' lib/sim5lib-full.c
-	gcc -c lib/sim5lib-full.c -o lib/sim5lib-full.o $(CFLAGS) $(LFLAGS)
+export: 
+	echo 'Compiling for export'
+	@rm -f bin/sim5lib.h
+	@for i in `cat lib/sim5lib.h | grep -e '^\#include ".*.h"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat lib/$$i >> bin/sim5lib.h; done
+	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//' bin/sim5lib.h
+	@rm -f bin/sim5lib.c
+	@echo "#include \"sim5lib.h\"" > bin/sim5lib.c
+	@for i in `cat lib/sim5lib.c | grep -e '^\#include ".*.c"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat lib/$$i >> bin/sim5lib.c; done
+	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//;s/    / /' bin/sim5lib.c
+	gcc -c bin/sim5lib.c -o bin/sim5lib.o $(CFLAGS) $(LFLAGS)
+	@rm bin/sim5lib.o
 
 
-sim5lib-dbg: sim5lib-c
+debug: lib
 	gcc -shared -o bin/sim5lib.so $(CFLAGS) -O0 -g -pg $(LFLAGS) lib/sim5lib.c
 
 
-sim5lib-tests: sim5lib-c
+test: lib
+	@rm -f bin/sim5lib-tests
 	gcc -c lib/sim5unittests.c -o lib/sim5unittests.o $(CFLAGS) $(LFLAGS) 
 	gcc lib/sim5unittests.o lib/sim5lib.o -o bin/sim5lib-tests $(CFLAGS) $(LFLAGS) 
+	if [ -e bin/sim5lib-tests ]; then bin/sim5lib-tests; fi
 
+.PHONY: doc
+
+doc:
+	doxygen doxygen.cfg
+	xsltproc doxygen.xsl doc/xml/index.xml > doc/sim5lib-doc.md

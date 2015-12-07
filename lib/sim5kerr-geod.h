@@ -24,7 +24,7 @@ typedef struct geodesic {
     // geodecis parameters
 	double l;                                // motion constant: L_z / E_\infty 
 	double q;                                // motion constant: L / E_\infty^2 (Carter's constant)
-	complex r1,r2,r3,r4;                     // roots of R-integral
+	sim5complex r1,r2,r3,r4;                 // roots of R-integral
 	int    nrr;                              // number of real roots of R integral
 	double m2p,m2m,m2,mK;                    // roots and coeficients of T-integral
 	double rp;                               // radius of radial turning point (periastron), or 0.0 if no turning point exists (no real roots)

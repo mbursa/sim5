@@ -1,6 +1,6 @@
 %module sim5lib_module
 %{
-    #define DEVICEFUNC  
+    #define DEVICEFUNC
 
     /* the resulting C file should be built as a python extension */
     //#define SWIG_FILE_WITH_INIT
@@ -28,17 +28,21 @@
 
 %include "sim5config.h"
 %include "sim5const.h"
+%include "sim5elliptic.h"
 %include "sim5kerr.h"
 %include "sim5raytrace.h"
 %include "sim5kerr-geod.h"
+%include "sim5disk-nt.h"
 
-
-%pythoncode %{
-def vector(components):
-    v  = doubleArray(4)
-    v[0] = components[0]
-    v[1] = components[1]
-    v[2] = components[2]
-    v[3] = components[3]
-    return v
-%}
+///*
+// vector() routine has been added to sim5kerr.c
+//%pythoncode %{
+//def vector(components):
+//    v  = doubleArray(4)
+//    v[0] = components[0]
+//    v[1] = components[1]
+//    v[2] = components[2]
+//    v[3] = components[3]
+//    return v
+//%}
+//*/

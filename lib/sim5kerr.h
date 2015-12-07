@@ -11,7 +11,7 @@
 
 
 struct sim5metric {
-    double a,r,m; 
+    double a,r,m;
     double g00;
     double g11;
     double g22;
@@ -50,6 +50,9 @@ DEVICEFUNC INLINE
 void Gamma(double G[4][4][4], double U[4], double V[4], double result[4]);
 
 DEVICEFUNC INLINE
+void vector(double x[4], double x0, double x1, double x2, double x3);
+
+DEVICEFUNC INLINE
 void vector_covariant(double V1[4], double V2[4], sim5metric* m);
 
 DEVICEFUNC INLINE
@@ -85,34 +88,34 @@ void on2bl(double Vin[4], double Vout[4], sim5tetrad* t);
 //-----------------------------------------------------------------
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_bh(double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_ms(double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_mb(double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_ph(double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double OmegaK(double r, double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double ellK(double r, double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double omega_r(double r, double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double omega_z(double r, double a);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double Omega_from_ell(double ell, sim5metric *m);
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double ell_from_Omega(double Omega, sim5metric *m);
 
 
@@ -127,10 +130,10 @@ DEVICEFUNC
 double photon_carter_const(double k[4], sim5metric *metric);
 
 DEVICEFUNC
-complex double photon_wp_const(double k[4], double f[4], sim5metric *metric);
+sim5complex photon_wp_const(double k[4], double f[4], sim5metric *metric);
 
 DEVICEFUNC
-void photon_polarization_vector(double k[4], complex double wp, sim5metric *metric, double f[4]);
+void photon_polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4]);
 
 
 

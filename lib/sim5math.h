@@ -49,19 +49,19 @@
 #endif
 
 
-long sim5round(double num);
+DEVICEFUNC INLINE long sim5round(double num);
 
-long int factorial(long int n);
+DEVICEFUNC INLINE long int factorial(long int n);
 
-double reduce_angle_pi(double phi);
-double reduce_angle_2pi(double phi);
+DEVICEFUNC INLINE double reduce_angle_pi(double phi);
+DEVICEFUNC INLINE double reduce_angle_2pi(double phi);
 
-int ensure_range(double *val, double min, double max, double acc);
+DEVICEFUNC int ensure_range(double *val, double min, double max, double acc);
 
-double urand();
+DEVICEFUNC double urand();
 
-void cartesian2spherical1(double x, double y, double z, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf);
-void cartesian2spherical2(double cos_h, double sin_f, double cos_f, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf);
+DEVICEFUNC void cartesian2spherical1(double x, double y, double z, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf);
+DEVICEFUNC void cartesian2spherical2(double cos_h, double sin_f, double cos_f, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf);
 
 
 

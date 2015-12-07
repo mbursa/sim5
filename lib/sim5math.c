@@ -86,7 +86,7 @@ double urand()
 }
 
 
-
+DEVICEFUNC
 void cartesian2spherical1(double x, double y, double z, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf)
 // transforms cartesian vector [Vx,Vy,Vz] at point [x,y,z] to spherical coordinates [V_r,V_theta,V_phi]
 // see: http://www.web-formulas.com/Math_Formulas/Linear_Algebra_Transform_from_Cartesian_to_Spherical_Coordinate.aspx
@@ -102,6 +102,7 @@ void cartesian2spherical1(double x, double y, double z, double Vx, double Vy, do
     (*Vf) =      -sin_f*Vx +       cos_f*Vy;
 }
 
+DEVICEFUNC
 void cartesian2spherical2(double cos_h, double sin_f, double cos_f, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf)
 // transforms cartesian vector [Vx,Vy,Vz] at point P=[r,theta,phi] to spherical coordinates [V_r,V_theta,V_phi]
 // the point P is specified by cos_h=cos(theta), sin_f=sin)phi), cos_f=cos(phi)

@@ -7,72 +7,84 @@
 #include "sim5math.h"
 */
 
-void gprintf(FILE* file, const char *template, ...)
+
+void gprintf(FILE* file, const char *templatex, ...)
 //**************************************************
+// prints message both to file and stderr
 {
     #ifndef CUDA
     va_list ap;
 
-    va_start (ap, template);
-    vfprintf (stderr, template, ap);
+    // print to stderr
+    va_start (ap, templatex);
+    vfprintf (stderr, templatex, ap);
     va_end (ap);
 
-    va_start (ap, template);
-    vfprintf (file, template, ap);
+    // print to file
+    va_start (ap, templatex);
+    vfprintf (file, templatex, ap);
     va_end (ap);
     #endif
 }
 
 
-void warning(const char *template, ...)
+void warning(const char *templatex, ...)
 //**************************************************
+// prints warning to stderr
 {
     #ifndef CUDA
     va_list ap;
-    fprintf (stderr, "ERROR: ");
-    va_start (ap, template);
-    vfprintf (stderr, template, ap);
+    fprintf (stderr, "WRN: ");
+    va_start (ap, templatex);
+    vfprintf (stderr, templatex, ap);
     va_end (ap);
 	fprintf(stderr, "\n");
     #endif
 }
 
 
-void error(const char *template, ...)
+void error(const char *templatex, ...)
 //**************************************************
+// prints error to stderr
 {
     #ifndef CUDA
     va_list ap;
     fprintf (stderr, "ERROR: ");
-    va_start (ap, template);
-    vfprintf (stderr, template, ap);
+    va_start (ap, templatex);
+    vfprintf (stderr, templatex, ap);
     va_end (ap);
-	fprintf(stderr, "\n");
-	exit(-1);
+    fprintf(stderr, "\n");
+    //exit(-1);
     #endif
 }
 
+
+
+
+int sort_array_d_compare_func(const void *x, const void *y) {
+    return (*(double*)x - *(double*)y);
+}
 
 void sort_array(double *array, int N)
 //**************************************************
 {
-    int compare_func(const void *x, const void *y) {
-      return (*(double*)x - *(double*)y);
-    }
-    qsort(array, N, sizeof(double), compare_func);
+    qsort(array, N, sizeof(double), sort_array_d_compare_func);
 }
 
+
+
+int sort_array_f_compare_func(const void *x, const void *y) {
+    return (*(float*)x - *(float*)y);
+}
 
 void sort_array_f(float *array, int N)
 //**************************************************
 {
-    int compare_func(const void *x, const void *y) {
-      return (*(float*)x - *(float*)y);
-    }
-    qsort(array, N, sizeof(float), compare_func);
+    qsort(array, N, sizeof(float), sort_array_f_compare_func);
 }
 
 
+#ifndef CUDA
 void* array_alloc(size_t capacity, size_t element_size)
 {
     size_t size_total = element_size*capacity    // space allocated for elements
@@ -235,7 +247,7 @@ void array_reverse(void* array)
     free(tmpdata1);
     free(tmpdata2);
 }
-
+#endif
 
 
 char* key_value_get(const char *string, const char *key) 
@@ -277,9 +289,9 @@ char **split(char *string, char *delim) {
     char *token = NULL;
     int idx = 0;
 
-    tokens  = malloc(sizeof(char *) * MAXTOKENS);
+    tokens  = (char**)malloc(sizeof(char *) * MAXTOKENS);
     if(tokens == NULL) return NULL;
-    working = malloc(sizeof(char) * strlen(string) + 1);
+    working = (char*)malloc(sizeof(char) * strlen(string) + 1);
     if(working == NULL) return NULL;
 
     // to make sure, copy string to a safe place
@@ -291,7 +303,7 @@ char **split(char *string, char *delim) {
 
     // always keep the last entry NULL termindated
     while((idx < (MAXTOKENS - 1)) && (token != NULL)) {
-        tokens[idx] = malloc(sizeof(char) * strlen(token) + 1);
+        tokens[idx] = (char*)malloc(sizeof(char) * strlen(token) + 1);
         if(tokens[idx] != NULL) {
             strcpy(tokens[idx], token);
             idx++;

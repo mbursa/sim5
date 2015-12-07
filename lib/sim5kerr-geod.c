@@ -8,13 +8,13 @@
 //    (c) Michal Bursa, Astronomical Institute of the CAS
 //************************************************************************
 
-
+/*
 #ifdef CUDA
-__host__ __device__ void error(char *s) { 
-    //abort(); 
+__host__ __device__ void error(char *s) {
+    //abort();
 }
 #endif
-
+*/
 
 // define some helper macros
 #define theta_int(x) (g->mK*jacobi_icn((x)/sqrt(g->m2p),g->m2))
@@ -29,9 +29,9 @@ DEVICEFUNC int geodesic_priv_T_roots(geodesic *g, int *status);
 DEVICEFUNC
 int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g, int *status)
 //! Makes setup for geodesic that is specified by impact parameters at infinity.
-//! 
+//!
 //! Parameters:
-//!     i      - inclination angle of observer (angle between BH rotation axis and 
+//!     i      - inclination angle of observer (angle between BH rotation axis and
 //!              direction to observer) [radians]
 //!     a      - BH spin [0..1]
 //!     alpha  - impact parameter in horizontal direction [GM/c^2]
@@ -51,10 +51,10 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
     g->alpha = alpha;
     g->beta  = beta;
 
-    // constants of motion    
+    // constants of motion
     g->l = -alpha*sin(i);
     g->q = sqr(beta) + sqr(cos(i))*(sqr(alpha)-sqr(a));
-    
+
     if (g->q == 0.0) {
         // we are not yet ready to handle this case (Dexter&Agol provide a solution)
         // skip it silently
@@ -62,7 +62,7 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
         return FALSE;
     }
 
-    // get geodesic 
+    // get geodesic
     if (!geodesic_priv_R_roots(g, status)) return FALSE;
     if (!geodesic_priv_T_roots(g, status)) return FALSE;
 
@@ -76,7 +76,7 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
 DEVICEFUNC
 int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodesic *g, int *status)
 //! Makes setup for geodesic that is specified by a point and direction (4-momentum vector).
-//! 
+//!
 //! Parameters:
 //!     a      - BH spin [0..1]
 //!     r      - radial coordinate [GM/c^2]
@@ -98,7 +98,7 @@ int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodes
     g->l = l;
     g->q = q;
 
-    // ...    
+    // ...
     g->i = g->cos_i = g->alpha = g->beta = NAN;
 
     if (!geodesic_priv_R_roots(g, status)) return FALSE;
@@ -112,19 +112,25 @@ int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodes
         Tpp = 2.*theta_int(0.0);                    // int_{-\mu_plus}^{\mu_plus}
         T = geodesic_P_int(g, r, bpa);              // int_{r}^{\inf}
         sign_dm = (k[2]<0.0) ? +1.0 : -1.0;           // increasing m = decreasing theta
-        fprintf(stderr,"Tmp=%.3e, Tpp=%.3e, T=%.3e, sdm=%+.0e\n", Tmp, Tpp, T, sign_dm);
+        //fprintf(stderr,"Tmp=%.3e, Tpp=%.3e, T=%.3e, sdm=%+.0e\n", Tmp, Tpp, T, sign_dm);
         T += (sign_dm>0.0) ? Tpp-Tmp : Tmp;
-        fprintf(stderr,"T2=%.3en", T);
+        //fprintf(stderr,"T2=%.3e\n", T);
         while (T > Tpp) {
             T -= Tpp;
             sign_dm = -sign_dm;
         }
-        fprintf(stderr,"T3=%.3e\n", T);
+        //fprintf(stderr,"T3=%.3e\n", T);
         g->cos_i = -sign_dm*theta_inv(T);
         g->i     = acos(g->cos_i);
         g->alpha = -g->l/sqrt(1.0-sqr(g->cos_i));
         g->beta  = -sign_dm * sqrt(g->q - sqr(g->cos_i)*(sqr(g->alpha)-sqr(g->a)));
     }
+
+    // value of T-integral between turning points \int[-\mu_plus..\mu_plus]
+	g->Tpp = 2.*theta_int(0.0);
+
+    // value of T-integral between observer's position and turning point \int[cos_i..\mu_plus]
+	g->Tip = theta_int(g->cos_i);
 
     if (status) *status = 1;
     return TRUE;
@@ -136,15 +142,15 @@ int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodes
 DEVICEFUNC
 double geodesic_P_int(geodesic *g, double r, int bpa)
 //! Returns the value of position integral along geodesics at point r.
-//! 
-//! The function gives the value of the integral 
+//!
+//! The function gives the value of the integral
 //!     P = \int 1/\sqrt{R} dr = \int 1/\sqrt{\Theta} d\theta
 //! This integral is integrated from infinity to the point, where the geodesic
 //! reaches radius r either before or behind its periastron.
 //! The value of the integral increases monotonicly from infinity along the geodesic
 //! and thus we use it for parametrizing it.
 //! Note it is not affine parameter, which would be other choice for parametrization.
-//! 
+//!
 //! Parameters:
 //!     g      - geodesic
 //!     r      - radial coordinate [GM/c^2]
@@ -154,10 +160,14 @@ double geodesic_P_int(geodesic *g, double r, int bpa)
 //!     Value of the position integral between infinity and given point.
 {
     double r1,r2,r3,r4,u,v;
-    
-    if (r  < g->rp) error("geodesic_s2i_int_R: r < periastron (%.3e < %.3e)", r, g->rp);
+
+    #ifdef CUDA
+    if (r  < g->rp) asm("exit;");
+    #else
+    if (r  < g->rp) error("geodesic_P_int: r < periastron (%.3e < %.3e)", r, g->rp);
+    #endif
     if (r == g->rp) return g->Rpa;
-    
+
     if (g->nrr == 4) {
         r1 = creal(g->r1);
         r2 = creal(g->r2);
@@ -166,7 +176,7 @@ double geodesic_P_int(geodesic *g, double r, int bpa)
 
         if (r1==r2) {
             #ifndef CUDA
-            fprintf(stderr, "ERR (geodesic_affine): no solution implemented for r1==r2\n");
+            error("(geodesic_affine): no solution implemented for r1==r2\n");
             #endif
             return 0.0;
         } else {
@@ -187,7 +197,7 @@ double geodesic_P_int(geodesic *g, double r, int bpa)
         return (bpa) ? g->Rpa + R : g->Rpa - R;
     } else {
         #ifndef CUDA
-        fprintf(stderr, "ERR: no solution implemented for r1-r4 all complex\n");
+        error("no solution implemented for r1-r4 all complex\n");
         #endif
         return 0.0;
     }
@@ -199,11 +209,11 @@ double geodesic_P_int(geodesic *g, double r, int bpa)
 DEVICEFUNC
 void geodesic_position(geodesic *g, double P, double x[4])
 //! Returns point on the geodesic, where the position integral gains value P.
-//! 
+//!
 //! The integral is evaluted in the form
 //! phi = a \int (2r-al)/(Delta \sqrt{R}) dr  +  l \int sin^-2(\theta) / \sqrt{Theta} d\theta
-//! 
-//! 
+//!
+//!
 //! Parameters:
 //!     g      - geodesic
 //!     P      - value of the position integral
@@ -221,7 +231,7 @@ void geodesic_position(geodesic *g, double P, double x[4])
 DEVICEFUNC
 double geodesic_position_rad(geodesic *g, double P)
 //! Gives radius at which the position integral gains value P.
-//! 
+//!
 //! Parameters:
 //!     g      - geodesic
 //!     P      - value of the position integral
@@ -230,11 +240,16 @@ double geodesic_position_rad(geodesic *g, double P)
 //!     Radius [GM/c^2]
 {
     double r1,r2,r3,r4,u,v;
-    
-    if ((P<=0.0)||(P>=2.*g->Rpa)) return -1.0;
+
+    if ((P<=0.0)||(P>=2.*g->Rpa)) {
+        #ifndef CUDA
+        warning("(geodesic_position_rad) P out of range (%e, 2Rpa=%e)\n", P, 2*g->Rpa);
+        #endif
+        return NAN;
+    }
     if (P == g->Rpa) return g->rp;
     //if (beyond_pa) *beyond_pa = (R > g->Rpa);
-    
+
     if (g->nrr == 4) {
         r1 = creal(g->r1);
         r2 = creal(g->r2);
@@ -243,7 +258,7 @@ double geodesic_position_rad(geodesic *g, double P)
 
         if (r1==r2) {
             #ifndef CUDA
-            fprintf(stderr, "WRN: r1 == r2\n");
+            warning("(geodesic_position_rad) r1 == r2\n");
             #endif
             return 0.0;
         } else {
@@ -254,6 +269,11 @@ double geodesic_position_rad(geodesic *g, double P)
         }
     } else
     if (g->nrr == 2) {
+        if ((creal(g->r1) < r_bh(g->a)) && (P > g->Rpa)) {
+            // unphysical solution - geodesic goes to observer through BH
+            return NAN;
+        }
+
         r1 = creal(g->r1);
         r2 = creal(g->r2);
         u  = creal(g->r3);
@@ -261,12 +281,11 @@ double geodesic_position_rad(geodesic *g, double P)
         double A = sqrt(sqr(r1-u)+sqr(v));
         double B = sqrt(sqr(r2-u)+sqr(v));
         double m2 = (sqr(A+B) - sqr(r1-r2)) / (4.*A*B);
-        if ((creal(g->r1)<r_bh(g->a)) && (P > g->Rpa)) {/*fprintf(stderr, "WRN: geodesic_s2i_inv_R - unphysical solution\n");*/ return -1.0;}  //unphysical solution
         double cn = jacobi_cn(sqrt(A*B)*(P - g->Rpa), m2);
         return (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn );
     } else {
         #ifndef CUDA
-        fprintf(stderr, "ERR: no solution implemented for r1-r4 all complex\n");
+        warning("no solution implemented for r1-r4 all complex\n");
         #endif
         return 0.0;
     }
@@ -278,7 +297,7 @@ double geodesic_position_rad(geodesic *g, double P)
 DEVICEFUNC
 double geodesic_position_pol(geodesic *g, double P)
 //! Gives poloidal (theta) angle at which the position integral gains value P.
-//! 
+//!
 //! Parameters:
 //!     g      - geodesic
 //!     P      - value of the position integral
@@ -305,8 +324,10 @@ double geodesic_position_pol(geodesic *g, double P)
 DEVICEFUNC
 double geodesic_position_azm(geodesic *g, double r, double m, double P)
 //! Gives azimuthal (phi) angle at which the position integral gains value P.
-//! 
-//! At infinity, the value of phi angle is assumed to be zero.
+//!
+//! The value of azimuthal angle is assumed to be zero at infinity and
+//! the function gives the change of the angle between
+//! the point [r,m] and infinity.
 //!
 //! Parameters:
 //!     g      - geodesic
@@ -316,8 +337,8 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
 //!     Phi angle in radians (can be more than 2pi)
 {
     double phi = 0.0;
-    
-    int    bpa  = (g->nrr>0) && (P > g->Rpa);              // beyond periastron 
+
+    int    bpa  = (g->nrr>0) && (P > g->Rpa);              // beyond periastron
     double a2 = sqr(g->a);
     double rp   = 1. + sqrt(1.-a2);
     double rm   = 1. - sqrt(1.-a2);
@@ -328,21 +349,28 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
         double r2 = creal(g->r2);
         double r3 = creal(g->r3);
         double r4 = creal(g->r4);
-        double A = integral_R_rp_re_inf(r1, r2, r3, r4, rp) + (bpa?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rp, r); 
+        double A = integral_R_rp_re_inf(r1, r2, r3, r4, rp) + (bpa?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rp, r);
         double B = integral_R_rp_re_inf(r1, r2, r3, r4, rm) + (bpa?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rm, r);
         phi += 1./sqrt(1.-a2) * ( A*(g->a*rp-g->l*a2/2.) - B*(g->a*rm-g->l*a2/2.) );
-    } else 
+    } else
     if (g->nrr == 2) {
-        if (bpa) error("geodesic_s2i_phi: cannot be (beyond_pa) && (nrr==2)");
+        #ifdef CUDA
+        if (bpa) asm("exit;");
+        #else
+        if (bpa) error("(geodesic_position_azm) cannot be (bpa) && (nrr==2)");
+        #endif
         double r1 = creal(g->r1);
         double r2 = creal(g->r2);
-        double A = integral_R_rp_cc2_inf(r1, r2, g->r3, rp, r); 
-        double B = integral_R_rp_cc2_inf(r1, r2, g->r3, rm, r); 
+        double A = integral_R_rp_cc2_inf(r1, r2, g->r3, rp, r);
+        double B = integral_R_rp_cc2_inf(r1, r2, g->r3, rm, r);
         phi += 1./sqrt(1.-a2) * ( A*(g->a*rp-g->l*a2/2.) - B*(g->a*rm-g->l*a2/2.) );
     } else {
-        error("geodesic_s2i_phi: g->nrr != [2,4]");
+        #ifdef CUDA
+        asm("exit;");
+        #else
+        error("(geodesic_position_azm) g->nrr != [2,4]");
+        #endif
     }
-
 
     // part 2 - T integral
     double phi_pp = 2.0*g->l/g->a*integral_T_mp(g->m2m, g->m2p, 1.0, 0.0);
@@ -366,10 +394,128 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
         break;
     }
 
-    phi += (sign_dm<0) ? phi_mp : phi_pp-phi_mp;
+    //phi += (sign_dm<0) ? phi_mp : phi_pp-phi_mp;
+    phi += (sign_dm<0) ? phi_mp : -phi_mp;
 
+    // change of sign here converts the integration from [r,m] to infinity
+    // to integration from infinity to [r,m]
     return phi;
 }
+
+
+
+DEVICEFUNC
+double geodesic_timedelay(geodesic *g, double P1, double P2)
+//! Gives travel-time (timedelay) between positions P1 and P2.
+//!
+//! Parameters:
+//!     g      - geodesic
+//!     P1     - value of the position integral at point A
+//!     P2     - value of the position integral at point B
+//!
+//! Returns:
+//!     timedelay between position P1 and P1 (point A and B)
+{
+    #ifndef CUDA
+    warning("(geodesic_timedelay): not implemented yet\n");
+    #endif
+    return 0.0;
+/*
+    double time = 0.0;
+
+    int    bpa  = (g->nrr>0) && (P > g->Rpa);              // beyond periastron
+    double a2 = sqr(g->a);
+    double rp   = 1. + sqrt(1.-a2);
+    double rm   = 1. - sqrt(1.-a2);
+
+    double RMAX = 1000.;
+    if (r > RMAX) error("geodesic_s2i_timedelay: r > RMAX");
+    if (r < g->rp) error("geodesic_s2i_timedelay: r < r_p");
+
+    if (g->nrr == 4) {
+        double r1 = creal(g->r1);
+        double r2 = creal(g->r2);
+        double r3 = creal(g->r3);
+        double r4 = creal(g->r4);
+        double R0 = integral_R_r0_re(r1, r2, r3, r4, RMAX) + (bpr?+1:-1)*integral_R_r0_re(r1, r2, r3, r4, r);
+        double R1 = integral_R_r1_re(r1, r2, r3, r4, RMAX) + (bpr?+1:-1)*integral_R_r1_re(r1, r2, r3, r4, r);
+        double R2 = integral_R_r2_re(r1, r2, r3, r4, RMAX) + (bpr?+1:-1)*integral_R_r2_re(r1, r2, r3, r4, r);
+        double RA = integral_R_rp_re(r1, r2, r3, r4, rp, RMAX) + (bpr?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rp, r);
+        double RB = integral_R_rp_re(r1, r2, r3, r4, rm, RMAX) + (bpr?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rm, r);
+        double a = +(g->a*g->l-4.)*rp + 2.*a2;
+        double b = -(g->a*g->l-4.)*rm + 2.*a2;
+        time += 4.*R0 + 2.*R1 + R2 - (a*RA + b*RB)/sqrt(1.-a2);
+    } else
+    if (g->nrr == 2) {
+        fprintf(stderr, "ERR (geodesic_position_time): no solution implemented for nrr=2\n");
+        / *
+        //if (bpr) error("geodesic_s2i_timedelay: cannot be (beyond_pa) && (nrr==2)");
+        double r1 = creal(g->r1);
+        double r2 = creal(g->r2);
+        double R0 = integral_R_r0_cc(r1, r2, g->r3, RMAX) - integral_R_r0_cc(r1, r2, g->r3, r);
+        double R1 = integral_R_r1_cc(r1, r2, g->r3, r, RMAX);// - integral_R_r1_cc(r1, r2, g->r3, r);
+        double R2 = integral_R_r2_cc(r1, r2, g->r3, r, RMAX);// - integral_R_r2_cc(r1, r2, g->r3, r);
+        double RA = integral_R_rp_cc2(r1, r2, g->r3, rp, r, RMAX);// + integral_R_rp_cc(r1, r2, g->r3, rp, r);
+        double RB = integral_R_rp_cc2(r1, r2, g->r3, rm, r, RMAX);// + integral_R_rp_cc(r1, r2, g->r3, rm, r);
+        double a = +(g->a*g->l-4.)*rp + 2.*a2;
+        double b = -(g->a*g->l-4.)*rm + 2.*a2;
+        time += 4.*R0 + 2.*R1 + R2 - (a*RA + b*RB)/sqrt(1.-a2);
+        * /
+    } else {
+        fprintf(stderr, "ERR (geodesic_position_time): no solution implemented for nrr=0\n");
+        // not implemented
+    }
+
+    // part 2 - T integral
+    double time_pp = 2.0*g->l/g->a*integral_T_m2(g->m2m, g->m2p, 1.0, 0.0);
+    double time_ip =     g->l/g->a*integral_T_m2(g->m2m, g->m2p, 1.0, g->cos_i);
+    double time_mp =     g->l/g->a*integral_T_m2(g->m2m, g->m2p, 1.0, m);
+
+    double T;
+    double sign_dm = (g->beta>=0.0) ? +1.0 : -1.0;
+    if (sign_dm > 0.0) {
+        T = -(g->Tpp-g->Tip);
+        time -= time_pp-time_ip;
+    } else {
+        T = -g->Tip;
+        time -= time_ip;
+    }
+
+    while (P >= T+g->Tpp) {
+        T += g->Tpp;
+        time += time_pp;
+        sign_dm = -sign_dm;
+        break;
+    }
+
+    time += (sign_dm<0) ? time_mp : time_pp-time_mp;
+
+/ *
+    double Tmp = g->mK*elliptic_k(g->m2);
+    double Tmo = g->mK*jacobi_icn(g->cos_i/sqrt(g->m2p),g->m2);
+    double Pmp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0);
+    double Pmo = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, g->cos_i);
+    double Pme = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, fabs(mu_e));
+
+    x += (g->beta>=0.0) ? Tmp-Tmo : Tmo;                             // shift T to the nearest higher \mu=0 or \mu=\mu_plus
+    T -= (g->beta>=0.0) ? Pmp-Pmo : Pmo;
+    int k = (g->beta>=0.0) ? 3 : 0;
+    while (x >= Tmp) {
+        x -= Tmp;
+        T += Pmp;
+        k++;
+    }
+    switch(k%4) {
+        case 0: T += Pme; break;
+        case 1: T += Pmp-Pme; break;
+        case 2: T += Pme; break;
+        case 3: T += Pmp-Pme; break;
+    }
+ * /
+    return time-RMAX;
+    */
+}
+
 
 
 
@@ -379,20 +525,21 @@ double geodesic_find_midplane_crossing(geodesic *g, int order)
 {
     if (g->q<=0.0) {
         #ifndef CUDA
-        fprintf(stderr,"WRN: q<0\n"); 
-        #endif
-        return NAN; 
-    }
-
-    double u = g->cos_i/sqrt(g->m2p);
-    if (!ensure_range(&u, 0.0, 1.0, 1e-4)) {
-        #ifndef CUDA
-        fprintf(stderr,"u out of range (%e)\n", u); 
+        warning("WRN: q<0\n");
         #endif
         return NAN;
     }
-    
-    //if (dk2dx) (*dk2dx) = (order%2==0)?-1.:+1.; 
+
+    double u = g->cos_i/sqrt(g->m2p);
+    if (!ensure_range(&u, -1.0, +1.0, 1e-4)) {
+        #ifndef CUDA
+        warning("u out of range (%e)\n", u);
+        #endif
+        return NAN;
+    }
+
+    // determine orientation of momentum vector (poloidal component of it)
+    //if (dk2dx) (*dk2dx) = (order%2==0)?-1.:+1.;
 
     double pos;
     if (g->beta > 0.0)
@@ -402,11 +549,13 @@ double geodesic_find_midplane_crossing(geodesic *g, int order)
     else
         pos = g->mK*( (2.*(double)order+1.)*elliptic_k(g->m2) );
 
-    #ifndef CUDA
+    if (pos > 2.*g->Rpa) pos = NAN;
+
     if (isnan(pos)) {
-        fprintf(stderr,"ERR: int_theta is nan (g.m2=%e)\n", g->m2); 
+        #ifndef CUDA
+        //warning("int_theta is nan (g.m2=%e)\n", g->m2);
+        #endif
     }
-    #endif
 
     return pos;
 }
@@ -474,7 +623,7 @@ int geodesic_priv_R_roots(geodesic *g, int *status)
          A = pow(Z,1./3.)*2.*cos(z/3.);
     }
     B = sqrt(A+D);
-    g->r1 = +B/2. + .5*csqrt(makeComplex(-A+2.*D-4.*C/B,0.0)); 
+    g->r1 = +B/2. + .5*csqrt(makeComplex(-A+2.*D-4.*C/B,0.0));
     g->r2 = +B/2. - .5*csqrt(makeComplex(-A+2.*D-4.*C/B,0.0));
     g->r3 = -B/2. + .5*csqrt(makeComplex(-A+2.*D+4.*C/B,0.0));
     g->r4 = -B/2. - .5*csqrt(makeComplex(-A+2.*D+4.*C/B,0.0));
@@ -489,7 +638,7 @@ int geodesic_priv_R_roots(geodesic *g, int *status)
 
     // R-integral at turning point
     // value of position integral along geodesics at its periastron (radial turning point).
-    // The function gives the value of the integral 
+    // The function gives the value of the integral
     //     P = \int 1/\sqrt{R} dr = \int 1/\sqrt{\Theta} d\theta
     // This integral is integrated from infinity to its radial turning point.
     double r1,r2,r3,r4,u,v;
@@ -536,7 +685,7 @@ int geodesic_priv_R_roots(geodesic *g, int *status)
 
 DEVICEFUNC
 int geodesic_priv_T_roots(geodesic *g, int *status)
-// T integral roots    
+// T integral roots
 // M(m) = q + (a2 - l2 - q)m2 - a2*m4 = -a2*(m4 + m2*(q + l2 -a2)/a2 - q/a2) = a2(m2m+m2)(m2p-m2)
 {
     double a  = g->a;
@@ -549,7 +698,7 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
     // the straightforward solution of quadratic function fails for small spins due to numerical cancelation:
     //   g->m2m = 1./(2.*a2) * ( sqrt(sqr(qla)+4.*q*a2) + qla );
     //   g->m2p = 1./(2.*a2) * ( sqrt(sqr(qla)+4.*q*a2) - qla );
-    // so the roots mahe to be calculated with the help of equality m2m*m2p=q/a^2 
+    // so the roots mahe to be calculated with the help of equality m2m*m2p=q/a^2
     // note: Dexter&Agol define m2m with opposite sign
     qla = q + l2 - a2;
     X = sqrt(sqr(qla)+4.*q*a2) + qla;
@@ -561,7 +710,7 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
     // both m2p and m2m must be non-negative since m2p*m2m=q/a^2 > 0
     if ((q>0.0) && !ensure_range(&g->m2p, 0.0, 1.0, 1e-5)) {
         #ifndef CUDA
-        fprintf(stderr,"m2p<0 (%e/%f/%f)\n", g->m2p,l,q); 
+        fprintf(stderr,"m2p<0 (%e/%f/%f)\n", g->m2p,l,q);
         #endif
         if (status) *status = 0;
         return FALSE;
@@ -574,10 +723,16 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
 
     if (g->m2m >= 0.0) {
         g->m2 = g->m2p/(g->m2p+g->m2m);
-        if (g->m2>=1.0) {*status=0; fprintf(stderr,"WRN:g->m2>=1.0\n");return FALSE;}
+        if (g->m2>=1.0) {
+            *status=0; 
+            #ifndef CUDA
+            fprintf(stderr,"WRN:g->m2>=1.0\n");
+            #endif
+            return FALSE;
+        }
         if (!ensure_range(&g->m2, 0.0, 1.0, 1e-5)) {
             #ifndef CUDA
-            //fprintf(stderr,"m2<0 (%e)\n", g->m2); 
+            //fprintf(stderr,"m2<0 (%e)\n", g->m2);
             #endif
             if (status) *status = 0;
             return FALSE;
@@ -593,12 +748,6 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
     }
 
     g->mK = 1./sqrt(a2*(g->m2p+g->m2m));
-
-    // value of T-integral between turning points \int[-\mu_plus..\mu_plus]
-	g->Tpp = 2.*theta_int(0.0);
-
-    // value of T-integral between observer's position and turning point \int[cos_i..\mu_plus]
-	g->Tip = theta_int(g->cos_i);
 
     return TRUE;
 }
@@ -621,15 +770,15 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
 DEVICEFUNC
 double geodesic_s2i_int_R(geodesic *g, double r, int bpa)
 //! Returns the value of position integral along geodesics at point r.
-//! 
-//! The function gives the value of the integral 
+//!
+//! The function gives the value of the integral
 //!     P = \int 1/\sqrt{R} dr = \int 1/\sqrt{\Theta} d\theta
 //! This integral is integrated from infinity to the point, where the geodesic
 //! reaches radius r either before or behind its periastron.
 //! The value of the integral increases monotonicly from infinity along the geodesic
 //! and thus we use it for parametrizing it.
 //! Note it is not affine parameter, which would be other choice for parametrization.
-//! 
+//!
 //! Parameters:
 //!     g      - geodesic
 //!     r      - radial coordinate [GM/c^2]
@@ -639,10 +788,14 @@ double geodesic_s2i_int_R(geodesic *g, double r, int bpa)
 //!     Value of the position integral between infinity and given point.
 {
     double r1,r2,r3,r4,u,v;
-    
+
+    #ifdef CUDA
+    if (r  < g->rp) asm("exit;");
+    #else
     if (r  < g->rp) error("geodesic_s2i_int_R: r < periastron (%.3e < %.3e)", r, g->rp);
+    #endif
     if (r == g->rp) return g->Rpa;
-    
+
     if (g->nrr == 4) {
         r1 = creal(g->r1);
         r2 = creal(g->r2);
@@ -681,15 +834,15 @@ double geodesic_s2i_int_R(geodesic *g, double r, int bpa)
 DEVICEFUNC
 double geodesic_s2i_inv_R(geodesic *g, double r, int* bpa)
 //! Returns the value of position integral along geodesics at point r.
-//! 
-//! The function gives the value of the integral 
+//!
+//! The function gives the value of the integral
 //!     P = \int 1/\sqrt{R} dr = \int 1/\sqrt{\Theta} d\theta
 //! This integral is integrated from infinity to the point, where the geodesic
 //! reaches radius r either before or behind its periastron.
 //! The value of the integral increases monotonicly from infinity along the geodesic
 //! and thus we use it for parametrizing it.
 //! Note it is not affine parameter, which would be other choice for parametrization.
-//! 
+//!
 //! Parameters:
 //!     g      - geodesic
 //!     r      - radial coordinate [GM/c^2]
@@ -699,10 +852,14 @@ double geodesic_s2i_inv_R(geodesic *g, double r, int* bpa)
 //!     Value of the position integral between infinity and given point.
 {
     double r1,r2,r3,r4,u,v;
-    
+
+    #ifdef CUDA
+    if (r  < g->rp) asm("exit;");
+    #else
     if (r  < g->rp) error("geodesic_s2i_int_R: r < periastron (%.3e < %.3e)", r, g->rp);
+    #endif
     if (r == g->rp) return g->Rpa;
-    
+
     if (g->nrr == 4) {
         r1 = creal(g->r1);
         r2 = creal(g->r2);
@@ -746,20 +903,20 @@ double geodesic_s2i_int_T_eqplane(geodesic *g, int order, double *dk2dx)
 {
     if (g->q<=0.0) {
         #ifndef CUDA
-        fprintf(stderr,"WRN: q<0\n"); 
-        #endif
-        return -1.0; 
-    }
-
-    double u = g->cos_i/sqrt(g->m2p);
-    if (!ensure_range(&u, 0.0, 1.0, 1e-4)) {
-        #ifndef CUDA
-        fprintf(stderr,"u out of range (%e)\n", u); 
+        fprintf(stderr,"WRN: q<0\n");
         #endif
         return -1.0;
     }
-    
-    if (dk2dx) (*dk2dx) = (order%2==0)?-1.:+1.; 
+
+    double u = g->cos_i/sqrt(g->m2p);
+    if (!ensure_range(&u, -1.0, +1.0, 1e-4)) {
+        #ifndef CUDA
+        fprintf(stderr,"u out of range (%e)\n", u);
+        #endif
+        return -1.0;
+    }
+
+    if (dk2dx) (*dk2dx) = (order%2==0)?-1.:+1.;
 
     if (g->beta == 0.0) return g->mK*elliptic_k(g->m2);
 
@@ -768,9 +925,9 @@ double geodesic_s2i_int_T_eqplane(geodesic *g, int order, double *dk2dx)
 
     if (isnan(psi)) {
         #ifndef CUDA
-        fprintf(stderr,"WRN: psi is nan - icn(%.7e,%.7e) a=%.2e, b=%.2e, ci=%.2e,m2p=%.2e\n",u, g->m2,g->alpha,g->beta,g->cos_i,sqrt(g->m2p)); 
+        fprintf(stderr,"WRN: psi is nan - icn(%.7e,%.7e) a=%.2e, b=%.2e, ci=%.2e,m2p=%.2e\n",u, g->m2,g->alpha,g->beta,g->cos_i,sqrt(g->m2p));
         #endif
-        return -10.0; //psi=0.0; 
+        return -10.0; //psi=0.0;
     }
 
     double res = g->mK*( (2.*(double)order+1.)*elliptic_k(g->m2) + sgn_psi*psi );
@@ -778,9 +935,9 @@ double geodesic_s2i_int_T_eqplane(geodesic *g, int order, double *dk2dx)
 
     if (isnan(res)) {
         #ifndef CUDA
-        fprintf(stderr,"ERR: int_theta is nan (psi=%e, g.m2=%e)\n", psi, g->m2); 
+        fprintf(stderr,"ERR: int_theta is nan (psi=%e, g.m2=%e)\n", psi, g->m2);
         #endif
-        return -1.0; 
+        return -1.0;
     }
 
     return res;
@@ -807,7 +964,9 @@ double geodesic_s2i_inv_T(geodesic *g, double T, double *dk2dx)
         case 2: if (dk2dx) (*dk2dx)=+1; return -sqrt(g->m2p)*jacobi_cn(T/g->mK,g->m2);
         case 3: if (dk2dx) (*dk2dx)=+1; return +sqrt(g->m2p)*jacobi_cn((Tmp-T)/g->mK,g->m2);
     }
+    #ifndef CUDA
     error("geodesic_s2i_inv_T: ???");
+    #endif
     return 0.0;
 }
 
@@ -824,8 +983,13 @@ double geodesic_s2i_timedelay(geodesic *g, double x, double *opt_r, double *opt_
     //unused double mu_e = (opt_m) ? *opt_m : geodesic_s2i_inv_T(g,x,NULL);
 
     double RMAX = 1000.;
+    #ifdef CUDA
+    if (r > RMAX) asm("exit;");
+    if (r < g->rp) asm("exit;");
+    #else
     if (r > RMAX) error("geodesic_s2i_timedelay: r > RMAX");
     if (r < g->rp) error("geodesic_s2i_timedelay: r < r_p");
+    #endif
 
     if (g->nrr == 4) {
         double r1 = creal(g->r1);
@@ -840,7 +1004,7 @@ double geodesic_s2i_timedelay(geodesic *g, double x, double *opt_r, double *opt_
         double a = +(g->a*g->l-4.)*rp + 2.*a2;
         double b = -(g->a*g->l-4.)*rm + 2.*a2;
         T += 4.*R0 + 2.*R1 + R2 - (a*RA + b*RB)/sqrt(1.-a2);
-    } else 
+    } else
     if (g->nrr == 2) {
         //if (bpr) error("geodesic_s2i_timedelay: cannot be (beyond_pa) && (nrr==2)");
         double r1 = creal(g->r1);
@@ -856,12 +1020,12 @@ double geodesic_s2i_timedelay(geodesic *g, double x, double *opt_r, double *opt_
     } else {
         // not implemented
     }
-    
-/* 
+
+/*
     double Tmp = g->mK*elliptic_k(g->m2);
     double Tmo = g->mK*jacobi_icn(g->cos_i/sqrt(g->m2p),g->m2);
-    double Pmp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0);  
-    double Pmo = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, g->cos_i); 
+    double Pmp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0);
+    double Pmo = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, g->cos_i);
     double Pme = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, fabs(mu_e));
 
     x += (g->beta>=0.0) ? Tmp-Tmo : Tmo;                             // shift T to the nearest higher \mu=0 or \mu=\mu_plus
@@ -900,19 +1064,27 @@ double geodesic_s2i_phi(geodesic *g, double x, double *opt_r, double *opt_m)
         double r2 = creal(g->r2);
         double r3 = creal(g->r3);
         double r4 = creal(g->r4);
-        double A = integral_R_rp_re_inf(r1, r2, r3, r4, rp) + (bpr?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rp, r); 
+        double A = integral_R_rp_re_inf(r1, r2, r3, r4, rp) + (bpr?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rp, r);
         double B = integral_R_rp_re_inf(r1, r2, r3, r4, rm) + (bpr?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rm, r);
         phi += 1./sqrt(1.-a2) * ( A*(g->a*rp-g->l*a2/2.) - B*(g->a*rm-g->l*a2/2.) );
-    } else 
+    } else
     if (g->nrr == 2) {
+        #ifdef CUDA
+        if (bpr) asm("exit;");
+        #else
         if (bpr) error("geodesic_s2i_phi: cannot be (beyond_pa) && (nrr==2)");
+        #endif
         double r1 = creal(g->r1);
         double r2 = creal(g->r2);
-        double A = integral_R_rp_cc2_inf(r1, r2, g->r3, rp, r); 
-        double B = integral_R_rp_cc2_inf(r1, r2, g->r3, rm, r); 
+        double A = integral_R_rp_cc2_inf(r1, r2, g->r3, rp, r);
+        double B = integral_R_rp_cc2_inf(r1, r2, g->r3, rm, r);
         phi += 1./sqrt(1.-a2) * ( A*(g->a*rp-g->l*a2/2.) - B*(g->a*rm-g->l*a2/2.) );
     } else {
+        #ifdef CUDA
+        asm("exit;");
+        #else
         error("geodesic_s2i_phi: g->nrr != [2,4]");
+        #endif
     }
 
     double Tmp = g->mK*elliptic_k(g->m2);
@@ -958,20 +1130,22 @@ double geodesic_s2i_afp(geodesic *g, double x, double *opt_r, double *opt_m)
         double r3 = creal(g->r3);
         double r4 = creal(g->r4);
         afp += integral_R_r2_re(r1, r2, r3, r4, RMAX) + (bpr?+1:-1)*integral_R_r2_re(r1, r2, r3, r4, r);
-    } else 
+    } else
     if (g->nrr == 2) {
         //if (bpr) error("geodesic_s2i_timedelay: cannot be (beyond_pa) && (nrr==2)");
         double r1 = creal(g->r1);
         double r2 = creal(g->r2);
         afp += integral_R_r2_cc(r1, r2, g->r3, r, RMAX);
     } else {
+        #ifndef CUDA
         error("geodesic_s2i_afp: g->nrr != [2,4]");
+        #endif
     }
 
     double Tmp = g->mK*elliptic_k(g->m2);
     double Tmo = g->mK*jacobi_icn(g->cos_i/sqrt(g->m2p),g->m2);
-    double Pmp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0);  
-    double Pmo = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, g->cos_i); 
+    double Pmp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0);
+    double Pmo = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, g->cos_i);
     double Pme = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, fabs(mu_e));
 
     x   += (g->beta>=0.0) ? Tmp-Tmo : Tmo;                             // shift T to the nearest higher \mu=0 or \mu=\mu_plus
@@ -1001,8 +1175,8 @@ void geodesic_s2i_solution_eqplane(geodesic *g, int order, double *r, int *beyon
     if (g->q < 0.0) return;
     g->x = geodesic_s2i_int_T_eqplane(g, order, &ksgn_2);
     (*r) = geodesic_s2i_inv_R(g, g->x, beyond_pa);
-    if ((*r) < r_bh(g->a)) return;    
-    (*status) = 1;    
+    if ((*r) < r_bh(g->a)) return;
+    (*status) = 1;
     photon_momentum(g->a, *r, 0.0, g->l, g->q, (*beyond_pa)?-1:+1, ksgn_2, g->k);
 
     double m = 0.0;
@@ -1019,8 +1193,8 @@ void geodesic_s2i_solution_surface(geodesic *g, double *r, double *m, double (*H
     *r = 0.0; *m = 0.0;
     double rh = r_bh(g->a);
     double r0 = max(1000.0, g->rp*2.);
-    double r1, m1, x1, R1, h1, H1;
-    double r2, m2, x2, R2, h2, H2;
+    double r1, m1, R1, h1, H1;
+    double r2, m2;//, x2, R2, h2, H2;
 
     do {
       // initialize photon-follow from r0
@@ -1028,12 +1202,12 @@ void geodesic_s2i_solution_surface(geodesic *g, double *r, double *m, double (*H
       if (!(*status)) return;
 
       // get initial position
-      x1 = x2 = g->x;
+      //x1 = g->x;
       r1 = r2 = geodesic_s2i_inv_R(g, g->x, NULL);
       m1 = m2 = geodesic_s2i_inv_T(g, g->x, NULL);
-      R1 = R2 = r1*sqrt(1.-m1*m1);
-      h1 = h2 = r1*m1;
-      H1 = H2 = fabs((*H)(R1));
+      R1 = r1*sqrt(1.-m1*m1);
+      h1 = r1*m1;
+      H1 = fabs((*H)(R1));
 
       r0 *= 2.0;
     } while ((h1<=H1) && (r0<5e4));
@@ -1044,7 +1218,7 @@ void geodesic_s2i_solution_surface(geodesic *g, double *r, double *m, double (*H
     // follow trajectory with adaptive step until surface is reached
     do {
         double step;
-        r2=r1; m2=m1; R2=R1; x2=x1; h2=h1; H2=H1;
+        r2=r1; m2=m1; //R2=R1; x2=x1; h2=h1; H2=H1;
 
         // new step
         step=max((h1-H1)/5., H1*accuracy);
@@ -1053,7 +1227,7 @@ void geodesic_s2i_solution_surface(geodesic *g, double *r, double *m, double (*H
     	if (!*status) return;
 
         // current photon and surface location
-        x1 = g->x;
+        //x1 = g->x;
         R1 = r1*sqrt(1.-m1*m1);
         h1 = r1*m1;
         H1 = fabs((*H)(R1));
@@ -1163,7 +1337,7 @@ void geodesic_s2i_follow(geodesic *g, double step, double *r, double *m, double 
     double _x = g->x;
     double _r = (*r);
     double _m = (*m);
-    
+
     do {
         double truestep = min(step, MAXSTEP);
         _x = _x + truestep/(sqr(_r)+sqr(g->a*_m));   // d(afp)/d(x) = r^2 + a^2*m^2
@@ -1189,6 +1363,3 @@ void geodesic_s2i_follow(geodesic *g, double step, double *r, double *m, double 
 
 #undef theta_int
 #undef theta_inv
-
-
-

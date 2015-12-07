@@ -36,7 +36,7 @@ long rtbis(double x1, double x2, double xacc, double (*fx)(double), double* resu
 		xmid = rtb+dx;
 		fmid = (*fx)(xmid);
 		if (fmid <= 0.0) rtb = xmid;
-		if ((fabs(dx) < xacc) || (fmid = 0.0)) break;
+		if ((fabs(dx) < xacc) || (fmid == 0.0)) break;
 	}
 	if (j >= MAX_STEPS) return(0);//error("rtbis: too many steps"); 
 	

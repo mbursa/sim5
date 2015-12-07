@@ -26,7 +26,7 @@ typedef struct raytrace_data {
     double bh_spin;         // black hole spin
     double E;               // initial motion constant - energy (k_t)
     double Q;               // initial motion constant - Carter constant
-    complex double WP;      // Walker-Penrose constant (K_wp = wp1 + i*wp2)
+    sim5complex WP;         // Walker-Penrose constant (K_wp = wp1 + i*wp2)
 
     // runtime variables    
     int pass;               // number of passes to raytrace() routine (steps along geodesics)

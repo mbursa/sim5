@@ -27,7 +27,9 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], dou
     rtd->step_epsilon = sqrt(presision_factor)/10.;   // note: precision ~ (step_epsilon)^2; step_epsilon=0.1 gives reasonable precision ~1e-3
 
     if (rtd->opt_pol) {
+        #ifndef CUDA
         fprintf(stderr,"ERR (raytrace_prepare): the polarization vector transport does not work sufficiently well yet. The photon_polarization_vector() routine should be used instead.\n");
+        #endif
     }
 
     // evaluate metric and connection 
@@ -38,12 +40,16 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], dou
 
     // check that k.k=0
     double kk = dotprod(k, k, &m);
+    #ifndef CUDA
     if (fabs(kk) > 1e-10) fprintf(stderr,"ERR (kerr_raytrace_prepare): k is not a null vector (k.k=%.3e)\n", kk);
+    #endif
 
     if (rtd->opt_pol) {
         // check that k.f=0
         double kf = dotprod(k, f, &m);
+        #ifndef CUDA
         if (fabs(kf) > 1e-10) fprintf(stderr,"ERR (kerr_raytrace_prepare): k and f are not orthogonal (k.f=%.3e)\n", kf);
+        #endif
     }
 
     // set motion constants
@@ -64,6 +70,24 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], dou
 }
 
 
+#ifdef CUDA
+DEVICEFUNC
+inline double k_deriv(int j, double _k[4], double G[4][4][4]) {
+    int a,b;
+    double _dki = 0.0;
+    for (a=0;a<4;a++) for (b=a;b<4;b++) _dki -= G[j][a][b]*_k[a]*_k[b];
+    return _dki;
+}
+
+DEVICEFUNC
+inline double f_deriv(int j, double _k[4], double _f[4], double G[4][4][4]) {
+    int a,b;
+    double _dfi = 0.0;
+    for (a=0;a<4;a++) for (b=a;b<4;b++) _dfi -= 0.5*G[j][a][b]*(_k[a]*_f[b] + _k[b]*_f[a]);
+    return _dfi;
+}
+#endif
+
 
 DEVICEFUNC
 void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data* rtd)
@@ -83,7 +107,7 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
 //   relative difference
 {
     int i;
-    int iter = 0;
+    //int iter = 0;
     sim5metric m;
     double G[4][4][4];
     double* dk = rtd->dk;
@@ -96,11 +120,13 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
     vect_copy(x, x_orig);
     vect_copy(k, k_orig);
     if (rtd->opt_pol) vect_copy(f, f_orig);
-    
+
+    #ifndef CUDA    
     // evaluate derivative of momentum from the geodesic equation; 
-    // this function does the same thing as Gamma() from sim5kerr.c (see there for info), 
-    // except this form takes out the summation over the upper index and uses the symmetry
-    // (also the inline form it runs ~2 times faster - no need for passing G to the function)
+    // - this function does the same thing as Gamma() from sim5kerr.c (see there for info), 
+    //   except this form takes out the summation over the upper index and uses the symmetry
+    //   (also the inline form it runs ~2 times faster - no need for passing G to the function)
+    // - for CUDA it cannot be nested, so it is taked out of raytrace()
     inline double k_deriv(int j, double _k[4]) {
         int a,b;
         double _dki = 0.0;
@@ -109,13 +135,15 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
     }
 
     // evaluate derivative of polarization vector from the geodesic equation
-    // same as for the routine above applies here, except the symmetry assumption
+    // - same as for the routine above applies here, except the symmetry assumption
+    // - for CUDA it cannot be nested, so it is taked out of raytrace()
     inline double f_deriv(int j, double _k[4], double _f[4]) {
         int a,b;
         double _dfi = 0.0;
         for (a=0;a<4;a++) for (b=a;b<4;b++) _dfi -= 0.5*G[j][a][b]*(_k[a]*_f[b] + _k[b]*_f[a]);
         return _dfi;
     }
+    #endif
 
     // limit step into a reasonable iterval
     // smaller step must be used close to black hole (radial term: 0.05*x[1])
@@ -176,15 +204,24 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
             vect_copy(fp, fp_prev);
             for (i=0;i<4;i++) {
                 // Dolence+09, Eq. (14c,d)
+                #ifdef CUDA
+                kp[i] = k[i] + 0.5*k_deriv(i,kp_prev,G)*dl;         
+                fp[i] = f[i] + 0.5*f_deriv(i,kp_prev,fp_prev,G)*dl;
+                #else
                 kp[i] = k[i] + 0.5*k_deriv(i,kp_prev)*dl;         
                 fp[i] = f[i] + 0.5*f_deriv(i,kp_prev,fp_prev)*dl;
+                #endif
                 k_frac_error += frac_error(kp[i],kp_prev[i]);
             }
         } else {
             vect_copy(kp, kp_prev);
             for (i=0;i<4;i++) {
                 // Dolence+09, Eq. (14c,d)
+                #ifdef CUDA
+                kp[i] = k[i] + 0.5*k_deriv(i,kp_prev,G)*dl;
+                #else
                 kp[i] = k[i] + 0.5*k_deriv(i,kp_prev)*dl;
+                #endif
                 k_frac_error += frac_error(kp[i],kp_prev[i]);
             }
         }
@@ -201,7 +238,7 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
         vect_copy(x_orig, x);
         vect_copy(k_orig, k);
         if (rtd->opt_pol) vect_copy(f_orig, f);
-        void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_data* rtd);
+        DEVICEFUNC void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_data* rtd);
         raytrace_rk4(x, k, f, dl, rtd);
         *step = dl;
         return;
@@ -213,14 +250,23 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
             x[i]  = xp[i];
             k[i]  = kp[i];
             f[i]  = fp[i];
+            #ifdef CUDA
+            dk[i] = k_deriv(i,kp,G);
+            df[i] = f_deriv(i,kp,fp,G);
+            #else
             dk[i] = k_deriv(i,kp);
             df[i] = f_deriv(i,kp,fp);
+            #endif
         }
     } else {
         for (i=0;i<4;i++) {
             x[i]  = xp[i];
             k[i]  = kp[i];
+            #ifdef CUDA
+            dk[i] = k_deriv(i,kp,G);
+            #else
             dk[i] = k_deriv(i,kp);
+            #endif
         }
     }
 
@@ -233,7 +279,7 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
 
 
 
-
+DEVICEFUNC
 void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_data* rtd)
 {
     int i;
@@ -345,7 +391,7 @@ void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_dat
 }
 
 
-
+DEVICEFUNC
 double raytrace_error(double x[4], double k[4], double f[4], raytrace_data* rtd)
 {
     sim5metric m;

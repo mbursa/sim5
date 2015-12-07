@@ -175,7 +175,7 @@ void sort_roots_re(double *r1, double *r2, double *r3, double *r4)
 DEVICEFUNC
 void sort_mix(double *r1, double *r2, int *s)
 {
-  int N=4;
+  const int N=4;
   double rr1[N], rr2[N], tmp;
   int i, j, k=0;
 
@@ -221,7 +221,7 @@ void sort_mix(double *r1, double *r2, int *s)
 DEVICEFUNC
 void sort_mix2(double *r1, double *r2, int *s)
 {
-  int N=4;
+  const int N=4;
   double rr1[N], rr2[N], tmp;
   int i, j, k=0;
 
@@ -264,7 +264,7 @@ DEVICEFUNC
 void sort_roots(int *s, sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5complex *z4)
 // s returns no. of real roots
 {
-  int N=4;
+  const int N=4;
   //double complex rr1[N], rr2[N], tmp;
   sim5complex rr1[N], rr2[N], tmp;
   int i, j, k=0;

@@ -34,7 +34,7 @@ void sim5kerr_profile() {
 DEVICEFUNC
 void flat_metric(double r, double m, sim5metric *metric)
 //*********************************************************
-// returns covariant Minkowski metric \eta_\mu\nu in spherical coordinates 
+// returns covariant Minkowski metric \eta_\mu\nu in spherical coordinates
 // inputs: radius <r>, cos(theta) <m>
 // output: Minkowski metric <metric>
 {
@@ -44,7 +44,7 @@ void flat_metric(double r, double m, sim5metric *metric)
     metric->g00 = +1.0;
     metric->g11 = -1.0;
     metric->g22 = -r*r;
-    metric->g33 = -r*r*(1.-m*m); 
+    metric->g33 = -r*r*(1.-m*m);
     metric->g03 = 0.0;
 }
 
@@ -53,7 +53,7 @@ void flat_metric(double r, double m, sim5metric *metric)
 DEVICEFUNC
 void flat_metric_contravariant(double r, double m, sim5metric *metric)
 //*********************************************************
-// returns contravariant Minkowski metric \eta_\mu\nu in spherical coordinates 
+// returns contravariant Minkowski metric \eta_\mu\nu in spherical coordinates
 // inputs: radius <r>, cos(theta) <m>
 // output: Minkowski metric <metric>
 {
@@ -63,7 +63,7 @@ void flat_metric_contravariant(double r, double m, sim5metric *metric)
     metric->g00 = -1.0;
     metric->g11 = +1.0;
     metric->g22 = r*r;
-    metric->g33 = r*r*(1.-m*m); 
+    metric->g33 = r*r*(1.-m*m);
     metric->g03 = 0.0;
 }
 
@@ -72,7 +72,7 @@ void flat_metric_contravariant(double r, double m, sim5metric *metric)
 DEVICEFUNC
 void kerr_metric(double a, double r, double m, sim5metric *metric)
 //*********************************************************
-// returns covariant Kerr metric g_\mu\nu in spherical coordinates 
+// returns covariant Kerr metric g_\mu\nu in spherical coordinates
 // inputs: spin <a>, radius <r>, cos(theta) <m>
 // output: Kerr metric <metric>
 {
@@ -89,7 +89,7 @@ void kerr_metric(double a, double r, double m, sim5metric *metric)
     metric->g00 = -1. + 2.0*r/S;
     metric->g11 = S/(r2-2.*r+a2); //S/D;
     metric->g22 = S;
-    metric->g33 = (r2*r2 + a2*a2*m2 + a2*r2*(1.+m2) + 2.*r*a2*s2S*S)*s2S; 
+    metric->g33 = (r2*r2 + a2*a2*m2 + a2*r2*(1.+m2) + 2.*r*a2*s2S*S)*s2S;
     metric->g03 = -2.*a*r*s2S;
 }
 
@@ -115,7 +115,7 @@ void kerr_metric_contravariant(double a, double r, double m, sim5metric *metric)
     metric->g00 = -sqr(r2+a2)/SD + a2*(1.-m2)/S;  // =-A/SD
     metric->g11 = (r2-2.*r+a2)/S; // =D/S
     metric->g22 = 1./S;
-    metric->g33 = 1./S/(1.-m2) - a2/SD; 
+    metric->g33 = 1./S/(1.-m2) - a2/SD;
     metric->g03 = -2.*a*r/SD;
 }
 
@@ -128,13 +128,13 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
 // inputs: spin <a>, radius <r>, cos(theta) <m>
 // output: connection coefficient matrix
 // NOTE: Christoffel tensor Gamma^i_(jk) is symmetric in lower two indices (j,k).
-//       (!) This function only evaluates components of the tensor, where j<k and 
+//       (!) This function only evaluates components of the tensor, where j<k and
 //       multiplies the value of these coeficients by a factor of two.
 //       In this way, both summation over j=1..4,k=1..4 and over j=1..4,k=j..4
-//       will give the same result; however, care must be taken when summing 
+//       will give the same result; however, care must be taken when summing
 //       Gamma Gamma^i_(jk) U^j V^k where factor 0.5 has to be used: 0.5*G[i][j][k]*(u[j]*v[k] + u[k]*v[j])
 {
-    //prof_N++;    
+    //prof_N++;
     //clock_t start_t, end_t;
     //start_t = clock();
 
@@ -154,9 +154,9 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
     double S3 = S*S*S;
 
     memset(G, 0, 4*4*4*sizeof(double));
-   
-    
-    G[0][0][1] = 2.0 * (-2.)*(a2 + r2)*(a2 - 2.*r2 + a2*cc)/(D*R); 
+
+
+    G[0][0][1] = 2.0 * (-2.)*(a2 + r2)*(a2 - 2.*r2 + a2*cc)/(D*R);
     G[0][0][2] = 2.0 * (-8.)*a2*r*cs/R;
     G[0][1][3] = 2.0 * (+2.)*a*s2*(a4 - 3.*a2*r2 - 6.*r2*r2 + a2*cc*(a2 - r2))/(D*R);
     G[0][2][3] = -G[0][0][2]*s2*a;
@@ -167,28 +167,28 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
     G[1][1][2] = 2.0 * (-a2*cs)/S;
     G[1][2][2] = -r*D/S;
     G[1][3][3] = -D*s2*(2.*c2*a2*r3 + r2*r3 + a4*c2*s2 + c2*c2*a4*r - a2*r2*s2)/S3; //-D*s2*(c2*(2.*a2*r*(a2 + r2) + a4*(1. - r)*s2) + r*(-a4 + r2*r2 + a2*(a2 - r)*s2))/S3;
-    
+
     G[2][0][0] = -2.*a2*r*cs/S3;
     G[2][0][3] = 2.0 * 2.*a*r*cs*(a2 + r2)/S3;
     G[2][1][1] = a2*cs/S/D;
     G[2][1][2] = 2.0 * r/S;
     G[2][2][2] = -G[2][1][1]*D;
-    G[2][3][3] = -2.*cs*(3.*a2*a4 + 10.*a4*r + 11.*a4*r2 + 16.*a2*r3 + 
-            16.*a2*r2*r2 + 8.*r3*r3 + 4.*a2*(a2 + 2.*r2)*D*cc + 
+    G[2][3][3] = -2.*cs*(3.*a2*a4 + 10.*a4*r + 11.*a4*r2 + 16.*a2*r3 +
+            16.*a2*r2*r2 + 8.*r3*r3 + 4.*a2*(a2 + 2.*r2)*D*cc +
             a4*D*CC)/(16.*S3);
 
-    G[3][0][1] = 2.0 * a*(r2 - a2*c2)/(D*S*S); 
+    G[3][0][1] = 2.0 * a*(r2 - a2*c2)/(D*S*S);
     G[3][0][2] = 2.0 * (-8.)*a*r*(m/s)/R;
-    G[3][1][3] = 2.0 * (a4 + 3.*a4*r - 12.*a2*r2 + 8.*a2*r3 - 
-            16.*r2*r2 + 8.*r2*r3 + 4.*a2*r*(2.*r2 -r + a2)*cc - 
+    G[3][1][3] = 2.0 * (a4 + 3.*a4*r - 12.*a2*r2 + 8.*a2*r3 -
+            16.*r2*r2 + 8.*r2*r3 + 4.*a2*r*(2.*r2 -r + a2)*cc -
             a4*(1. - r)*CC)/(2.*D*R);
-    G[3][2][3] = 2.0 * ((3.*a4 + 8.*a2*r + 8.*a2*r2 + 8.*r2*r2 + 
+    G[3][2][3] = 2.0 * ((3.*a4 + 8.*a2*r + 8.*a2*r2 + 8.*r2*r2 +
             4.*a2*(2.*r2 -2.*r + a2)*cc + a4*CC)*(m/s))/(2.*R);
 
     //end_t = clock();
     //prof_t += (end_t - start_t);
 }
-   
+
 
 DEVICEFUNC
 void flat_connection(double r, double m, double G[4][4][4])
@@ -211,10 +211,10 @@ void flat_connection(double r, double m, double G[4][4][4])
     G[3][1][3] = 2.0 * 1./r;
     G[3][2][3] = 2.0 * m/s;
 }
-   
+
 /*
 DEVICEFUNC INLINE
-void Gamma(double G[4][4][4], double V[4], double result[4]) 
+void Gamma(double G[4][4][4], double V[4], double result[4])
 // *********************************************************
 // returns product of summation -G^i_(jk) V^j V^k - useful for parallel transport
 // (note the definition of G tensor components in symmetric indices)
@@ -231,10 +231,10 @@ void Gamma(double G[4][4][4], double V[4], double result[4])
 
 
 DEVICEFUNC INLINE
-void Gamma(double G[4][4][4], double U[4], double V[4], double result[4]) 
+void Gamma(double G[4][4][4], double U[4], double V[4], double result[4])
 //*********************************************************
 // returns product of summation -G^i_(jk) U^j V^k
-// - this is useful for calculationg parallel transport of vector <V> along 
+// - this is useful for calculationg parallel transport of vector <V> along
 //   a geodesic specified by tangent vector <U>, as it gives the derivative dV/d\lambda
 // - note the definition of G tensor components in symmetric indices
 // inputs: Christoffel tensor <G>, tanget vector <U> and transported vector <V>
@@ -249,7 +249,17 @@ void Gamma(double G[4][4][4], double U[4], double V[4], double result[4])
 
 
 DEVICEFUNC INLINE
-void vector_covariant(double V1[4], double V2[4], sim5metric* m) 
+void vector(double x[4], double x0, double x1, double x2, double x3)
+{
+    x[0] = x0;
+    x[1] = x1;
+    x[2] = x2;
+    x[3] = x3;
+}
+
+
+DEVICEFUNC INLINE
+void vector_covariant(double V1[4], double V2[4], sim5metric* m)
 //*********************************************************
 // returns covariant version of a vector
 // inputs: contravariant vector <V1> (k^\mu), metric <m>
@@ -264,7 +274,7 @@ void vector_covariant(double V1[4], double V2[4], sim5metric* m)
 
 
 DEVICEFUNC INLINE
-double vector_norm(double V[4], sim5metric* m) 
+double vector_norm(double V[4], sim5metric* m)
 //*********************************************************
 // returns vector norm: sqrt(V*V)
 // inputs: vector <V1> (k^\mu), metric <m>
@@ -290,15 +300,15 @@ void vector_norm_to(double V[4], sim5metric* m, double norm)
 
 
 DEVICEFUNC INLINE
-double dotprod(double V1[4], double V2[4], sim5metric* m) 
+double dotprod(double V1[4], double V2[4], sim5metric* m)
 //*********************************************************
 // returns scalar product of two vectors
 // inputs: vector <V1>, vector <V2>, metric <m>
 // output: result of the scalar product
 // NOTE: if metric is NULL, flat space metric is used
 {
-    if (m) 
-        return V1[0]*V2[0]*m->g00 + V1[1]*V2[1]*m->g11 + V1[2]*V2[2]*m->g22 + 
+    if (m)
+        return V1[0]*V2[0]*m->g00 + V1[1]*V2[1]*m->g11 + V1[2]*V2[2]*m->g22 +
                V1[3]*V2[3]*m->g33 + V1[0]*V2[3]*m->g03 + V1[3]*V2[0]*m->g03;
     else
         return -V1[0]*V2[0] + V1[1]*V2[1] + V1[2]*V2[2] + V1[3]*V2[3];
@@ -335,7 +345,7 @@ void tetrad_zamo(sim5metric *m, sim5tetrad *t)
     t->e[3][1] = 0.0;
     t->e[3][2] = 0.0;
     t->e[3][3] = 1./sqrt(m->g33);
-    
+
     t->metric = *m;
 }
 
@@ -344,7 +354,7 @@ void tetrad_zamo(sim5metric *m, sim5tetrad *t)
 DEVICEFUNC
 void tetrad_radial(sim5metric *m, double v_r, sim5tetrad *t)
 //*********************************************************
-// returns basis vectors for tetrad e_{(a)}^{\mu} of an observer moving in 
+// returns basis vectors for tetrad e_{(a)}^{\mu} of an observer moving in
 // radial direction with some velocity
 // inputs: metric <m>, velocity <v_r>
 // output: tetrad <t>
@@ -356,30 +366,30 @@ void tetrad_radial(sim5metric *m, double v_r, sim5tetrad *t)
 
     double g00 = m->g00;
     double g11 = m->g11;
-    double U0 = sqrt((-1.-sqr(v_r)*g11)/g00); 
+    double U0 = sqrt((-1.-sqr(v_r)*g11)/g00);
     double U1 = v_r;
 
-    t->e[0][0] = U0; 
-    t->e[0][1] = U1; 
-    t->e[0][2] = 0.0; 
-    t->e[0][3] = 0.0; 
+    t->e[0][0] = U0;
+    t->e[0][1] = U1;
+    t->e[0][2] = 0.0;
+    t->e[0][3] = 0.0;
 
     double UG = U0*U0*g00 + U1*U1*g11;
     t->e[1][0] = -U1*sqrt(UG*g11*g00)*U0/(g11*UG)*g11/(U0*g00);
     t->e[1][1] = sqrt(UG*g11*g00)*U0/(g11*UG);
-    t->e[1][2] = 0.0; 
-    t->e[1][3] = 0.0; 
+    t->e[1][2] = 0.0;
+    t->e[1][3] = 0.0;
 
-    t->e[2][0] = 0.0; 
-    t->e[2][1] = 0.0; 
+    t->e[2][0] = 0.0;
+    t->e[2][1] = 0.0;
     t->e[2][2] = -1./sqrt(m->g22);  // vector is oriented "upwards" along decreasing theta
-    t->e[2][3] = 0.0; 
+    t->e[2][3] = 0.0;
 
     t->e[3][0] = 0.0;
-    t->e[3][1] = 0.0; 
-    t->e[3][2] = 0.0; 
+    t->e[3][1] = 0.0;
+    t->e[3][2] = 0.0;
     t->e[3][3] = 1./sqrt(m->g33);
-    
+
     t->metric = *m;
 }
 
@@ -388,7 +398,7 @@ void tetrad_radial(sim5metric *m, double v_r, sim5tetrad *t)
 DEVICEFUNC
 void tetrad_azimuthal(sim5metric *m, double Omega, sim5tetrad *t)
 //*********************************************************
-// returns basis vectors for tetrad e_{(a)}^{\mu} of an observer rotating 
+// returns basis vectors for tetrad e_{(a)}^{\mu} of an observer rotating
 // azimuthally with angular velocity Omaga
 // inputs: metric <m>, ang.velocity <Omega>
 // output: tetrad <t>
@@ -404,28 +414,28 @@ void tetrad_azimuthal(sim5metric *m, double Omega, sim5tetrad *t)
     double U0 = sqrt(-1.0/(g00 + 2.*Omega*g03 + sqr(Omega)*g33));
     double U3 = U0*Omega;
 
-    t->e[0][0] = U0; 
-    t->e[0][1] = 0.0; 
-    t->e[0][2] = 0.0; 
-    t->e[0][3] = U3; 
+    t->e[0][0] = U0;
+    t->e[0][1] = 0.0;
+    t->e[0][2] = 0.0;
+    t->e[0][3] = U3;
 
-    t->e[1][0] = 0.0; 
+    t->e[1][0] = 0.0;
     t->e[1][1] = sqrt(1./m->g11);
-    t->e[1][2] = 0.0; 
-    t->e[1][3] = 0.0; 
+    t->e[1][2] = 0.0;
+    t->e[1][3] = 0.0;
 
-    t->e[2][0] = 0.0; 
-    t->e[2][1] = 0.0; 
+    t->e[2][0] = 0.0;
+    t->e[2][1] = 0.0;
     t->e[2][2] = -sqrt(1./m->g22);  // vector is oriented "upwards" along decreasing theta
-    t->e[2][3] = 0.0; 
+    t->e[2][3] = 0.0;
 
     double k1 = (g03*U3+g00*U0);
     double k2 = (g33*U3+g03*U0);
     t->e[3][0] =  - sign(k1)*k2 / sqrt((g33*g00-g03*g03)*(g00*U0*U0+g33*U3*U3+2.0*g03*U0*U3));
-    t->e[3][1] = 0.0; 
-    t->e[3][2] = 0.0; 
+    t->e[3][1] = 0.0;
+    t->e[3][2] = 0.0;
     t->e[3][3] = t->e[3][0] * (-k1/k2);
-    
+
     t->metric = *m;
 }
 
@@ -453,10 +463,10 @@ void tetrad_surface(sim5metric *m, double Omega, double V, double dhdr, sim5tetr
     // get contra-variant metric components g^\mu\nu
     sim5metric M;
     kerr_metric_contravariant(m->a, m->r, m->m, &M);
-    
+
 
     // zero-radial-velocity surface tangent vector S0:
-    // - get the components of space-like surface tangent vector S0 for an observer that 
+    // - get the components of space-like surface tangent vector S0 for an observer that
     //   corotates with the fluid (has no radial component of velocity)
     // - S0 is contained in [r,theta] plane and is oriented in the positive radial direction
     // - obviously S = S0*[0,1,d\theta/dr,0], where condition S.S=1 fixes S0
@@ -464,17 +474,17 @@ void tetrad_surface(sim5metric *m, double Omega, double V, double dhdr, sim5tetr
     double S0h = S0r*dhdr;
 
     //fprintf(stderr, "S0.S0 = %e\n", g11*sqr(S0r)+g22*sqr(S0h));
-    
+
     // compute quantity v (Sadowski+2011, Eq. A.10)
     double ur = V/sqrt(1.-V*V)/sqrt(g11);
     double v = sign(V) * sqrt((sqr(ur/S0r)*(-g00-2.*Omega*g03-sqr(Omega)*g33))/(1.+sqr(ur/S0r)));
 
     // timelike vector U corresponding to observer's 4-velocity with both azimuthal and radial component
     // U = A(\eta^\mu + Omega*\xi^\mu + v*S_0^\mu); c.f. Sadowski+2011, Eq. A.5
-    t->e[0][0] = 1.0; 
-    t->e[0][1] = v*S0r; 
-    t->e[0][2] = v*S0h; 
-    t->e[0][3] = Omega; 
+    t->e[0][0] = 1.0;
+    t->e[0][1] = v*S0r;
+    t->e[0][2] = v*S0h;
+    t->e[0][3] = Omega;
     vector_norm_to(t->e[0], m, 1.0);  // note: the actual computed norm will be -1.0 because of time-likeness
     //fprintf(stderr, "U.U = %e\n", dotprod(t->e[0],t->e[0],m));
 
@@ -483,34 +493,34 @@ void tetrad_surface(sim5metric *m, double Omega, double V, double dhdr, sim5tetr
     // orientation is set such that the vector points in the positive radial direction,
     // i.e. in the limit dhdr=0 it becomes same as ZAMO e[1] vector
     // c.f. Sadowski+2011, Eq. A.12 (signs differ)
-    t->e[1][0] = (v*t->e[0][0]); 
-    t->e[1][1] = (v*t->e[0][1] + S0r/t->e[0][0]); 
-    t->e[1][2] = (v*t->e[0][2] + S0h/t->e[0][0]); 
-    t->e[1][3] = (v*t->e[0][3]); 
+    t->e[1][0] = (v*t->e[0][0]);
+    t->e[1][1] = (v*t->e[0][1] + S0r/t->e[0][0]);
+    t->e[1][2] = (v*t->e[0][2] + S0h/t->e[0][0]);
+    t->e[1][3] = (v*t->e[0][3]);
     vector_norm_to(t->e[1], m, 1.0);
     //fprintf(stderr, "S.S = %e\n", dotprod(t->e[1],t->e[1],m));
-    
+
     // surface normal vector N
-    // this spacelike vector lives in [r,theta] plane as satisfies 
-    //   N_\mu = grad F = [0,\partial{F}/\partial{r},\partial{F}/\partial{theta},0] = 
-    //   [0, d\theta/dr, -1, 0], 
+    // this spacelike vector lives in [r,theta] plane as satisfies
+    //   N_\mu = grad F = [0,\partial{F}/\partial{r},\partial{F}/\partial{theta},0] =
+    //   [0, d\theta/dr, -1, 0],
     //   where F(r,theta)=0 defines the surface
     //   => N^\mu = N0*[0,g^11*d\theta/dr,-g^22,0]
     // orientation is set such that the vector points upward,
     // i.e. in the limit dhdr=0 it becomes same as ZAMO e[2] vector
     // c.f. Sadowski+2011, Eq. A.3 (signs differ)
-    t->e[2][0] = 0.0; 
+    t->e[2][0] = 0.0;
     t->e[2][1] = dhdr*(M.g11);
-    t->e[2][2] = -M.g22; 
-    t->e[2][3] = 0.0; 
+    t->e[2][2] = -M.g22;
+    t->e[2][3] = 0.0;
     vector_norm_to(t->e[2], m, 1.0);
     //fprintf(stderr, "N.N = %e\n", dotprod(t->e[2],t->e[2],m));
-    
+
     // the remaining [t,phi] plane space-like vector K satisfying K.U=0
     // c.f. Sadowski+2011, Eq. A.8
     t->e[3][0] = -(g03+g33*Omega)/(g00+g03*Omega);
-    t->e[3][1] = 0.0; 
-    t->e[3][2] = 0.0; 
+    t->e[3][1] = 0.0;
+    t->e[3][2] = 0.0;
     t->e[3][3] = 1.0;
     vector_norm_to(t->e[3], m, 1.0);
     //fprintf(stderr, "K.K = %e\n", dotprod(t->e[3],t->e[3],m));
@@ -521,7 +531,7 @@ void tetrad_surface(sim5metric *m, double Omega, double V, double dhdr, sim5tetr
     //fprintf(stderr, "K.N = %e\n", dotprod(t->e[3],t->e[2],m));
     //fprintf(stderr, "K.S = %e\n", dotprod(t->e[3],t->e[1],m));
     //fprintf(stderr, "N.S = %e\n", dotprod(t->e[2],t->e[1],m));
-    
+
     t->metric = *m;
 }
 
@@ -570,7 +580,7 @@ void on2bl(double Vin[4], double Vout[4], sim5tetrad* t)
 //-----------------------------------------------------------------
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_bh(double a)
 //*********************************************************
 // event horizon
@@ -582,7 +592,7 @@ double r_bh(double a)
 
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_ms(double a)
 //*********************************************************
 // marginally stable orbit (isco)
@@ -595,7 +605,7 @@ double r_ms(double a)
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_mb(double a)
 //*********************************************************
 // marginally bound orbit (minimal radius of bound (E<0) circular and parabolic orbits)
@@ -607,7 +617,7 @@ double r_mb(double a)
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double r_ph(double a)
 //*********************************************************
 // photon orbit
@@ -620,7 +630,7 @@ double r_ph(double a)
 
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double OmegaK(double r, double a)
 {
     return 1./(a + pow(r,1.5));
@@ -635,7 +645,7 @@ double ellK(double r, double a)
     double a2 = sqr(a);
     double D = r2 + a2 - 2.*r;
     double gtt = -1. + 2.0/r;
-    double gff = (sqr(r2 + a2) - a2*D)/r2; 
+    double gff = (sqr(r2 + a2) - a2*D)/r2;
     double gtf = -2.*a/r;
 
     double Omega = OmegaK(r,a);
@@ -645,28 +655,28 @@ double ellK(double r, double a)
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double omega_r(double r, double a)
 {
     return OmegaK(r,a) * sqrt(1.-6./r+8.*a/sqrt(r*r*r)-3.*a*a/sqr(r));
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double omega_z(double r, double a)
 {
     return OmegaK(r,a) * sqrt(1.-4.*a/sqrt(r*r*r)+3.*a*a/sqr(r));
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double Omega_from_ell(double ell, sim5metric *m)
 {
     return  -(m->g03 + ell*m->g00) / (m->g33 + ell*m->g03);
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double ell_from_Omega(double Omega, sim5metric *m)
 {
     return -(m->g03 + m->g33*Omega)/(m->g00 + m->g03*Omega);
@@ -705,8 +715,11 @@ void photon_momentum(double a, double r, double m, double l, double q2, double r
 
     if ((M<0.0) && (-M<1e-8)) M = 0.0;
     if ((R<0.0) && (-R<1e-8)) R = 0.0;
-    if (R<0.0) fprintf(stderr, "ERR (photon_momentum): R<0 (%.10e)\n", R);
-    if (M<0.0) fprintf(stderr, "ERR (photon_momentum): M<0 (%.10e)\n", M);
+
+    #ifndef CUDA
+    if (R<0.0) warning("ERR (photon_momentum): R<0 (%.10e)\n", R);
+    if (M<0.0) warning("ERR (photon_momentum): M<0 (%.10e)\n", M);
+    #endif
 
     k[0] = +1/S * ( -a*(a*(1.-m2)-l) + (r2+a2)/D*(r2+a2-a*l) );
     k[1] = +1/S * sqrt(R);
@@ -717,13 +730,13 @@ void photon_momentum(double a, double r, double m, double l, double q2, double r
     if (m_sign<0.0) k[2] = -k[2];
 
 /*
-    // eveluate derivative of k if it is requested (dk is not NULL)    
+    // eveluate derivative of k if it is requested (dk is not NULL)
     if (dk) {
         int i,b,c;
         double G[4][4][4];
         kerr_connection(a, r, m, G);
         for (i=0;i<4;i++) {
-            // dk^\mu = -Gamma^\mu_\alpha\beta k^\alpha k^\beta 
+            // dk^\mu = -Gamma^\mu_\alpha\beta k^\alpha k^\beta
             // Gamma is symmetric in \alpha,\beta
             dk[i] = 0.0;
             for (b=0;b<4;b++) for (c=b;c<4;c++) dk[i] += -G[i][b][c]*k[b]*k[c];
@@ -744,21 +757,23 @@ void photon_motion_constants(double a, double r, double m, double k[4], double* 
     double r2 = sqr(r);
     double s2 = 1.-m*m;
     double D  = r2 - 2.*r + a2;
-    
+
     double l;
     double nf = k[3]/k[0];
     double nh = sqr(k[2])/sqr(k[0]);
-    
+
     // Mathematica's solution of "l" for nf==k[3]/k[0]
-    *L = l =(-a*a2 + sqr(a2)*nf + nf*sqr(r2) + a*(D-r2) + a2*nf*(2.*r2-D*s2))*s2 / 
+    *L = l =(-a*a2 + sqr(a2)*nf + nf*sqr(r2) + a*(D-r2) + a2*nf*(2.*r2-D*s2))*s2 /
         (D - a*s2*(a-a2*nf + nf*(D-r2)));
-    
+
     // Mathematica's solution of "q2" for nh==sqr(k[2])/sqr(k[0])
     *Q = pow(a*(l-a*s2) + ((a2+r2)*(a2-a*l+r2))/D, 2.0) *
         (nh - (sqr(D*m)*(sqr(l)-a2*s2))/(-s2*pow(sqr(a2)-a*a2*l+sqr(r2)+a*l*(D-r2)+a2*(2.*r2-D*s2),2.0)));
 
-    if (isnan(*L)) fprintf(stderr,"ERR (photon_motion_constants): L is NaN (%e, k=%e/%e/%e/%e)\n", *L, k[0], k[1], k[2], k[3]);
-    if (isnan(*Q)) fprintf(stderr,"ERR (photon_motion_constants): Q is NaN (%e, k=%e/%e/%e/%e)\n", *Q, k[0], k[1], k[2], k[3]);
+    #ifndef CUDA
+    if (isnan(*L)) warning("ERR (photon_motion_constants): L is NaN (%e, k=%e/%e/%e/%e)\n", *L, k[0], k[1], k[2], k[3]);
+    if (isnan(*Q)) warning("ERR (photon_motion_constants): Q is NaN (%e, k=%e/%e/%e/%e)\n", *Q, k[0], k[1], k[2], k[3]);
+    #endif
 }
 
 
@@ -766,7 +781,7 @@ void photon_motion_constants(double a, double r, double m, double k[4], double* 
 DEVICEFUNC
 double photon_carter_const(double k[4], sim5metric *metric)
 //*********************************************************
-// returns Carter constants for a null geodesic 
+// returns Carter constants for a null geodesic
 {
     double m2 = sqr(metric->m);
     double kt = k[0]*metric->g00 + k[3]*metric->g03;
@@ -778,8 +793,8 @@ double photon_carter_const(double k[4], sim5metric *metric)
 
 
 DEVICEFUNC
-complex double photon_wp_const(double k[4], double f[4], sim5metric *metric)
-// calculates components of Walker-Penrose (1970) constant 
+sim5complex photon_wp_const(double k[4], double f[4], sim5metric *metric)
+// calculates components of Walker-Penrose (1970) constant
 // following Connors, Piran, Stark (1980): kappa_wp = kappa1 - I*kappa2 = (A1 - I*A2)*(r - I*a*cos(theta))
 // => kappa1 = +r*A1 - a*cos(theta)*A2; kappa2 = -r*A2 - a*cos(theta)*A1
 // returns kappa_wp = kappa1 + I*kappa2
@@ -789,19 +804,19 @@ complex double photon_wp_const(double k[4], double f[4], sim5metric *metric)
     double r = metric->r;
     double m = metric->m;
     double s = sqrt(1.0-m*m);
-    
+
     // evaluate Walker-Penrose constant components
     double A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
     double A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
     double wp1 = +r*A1 - a*m*A2;
     double wp2 = -r*A2 - a*m*A1;
-    
-    return wp1+_Complex_I*wp2;
+
+    return wp1 + ComplexI*wp2;
 }
 
 
 DEVICEFUNC
-void photon_polarization_vector(double k[4], complex double wp, sim5metric *metric, double f[4])
+void photon_polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4])
 {
     double a = metric->a;
     double m = metric->m;
@@ -825,7 +840,7 @@ void photon_polarization_vector(double k[4], complex double wp, sim5metric *metr
     double A2 = (-r*cimag(wp) - a*m*creal(wp))/(r*r + a*a*m*m);
 
     // f can be freely shifted by a multiple of k (f' = f + \alpha*k), therefore
-    // it has a freedom in one compoment and we can always set f in such a way 
+    // it has a freedom in one compoment and we can always set f in such a way
     // that its time-component will be zero (f[0]=0)
     // then we can solve this set of equations
     //   A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
@@ -846,20 +861,20 @@ void photon_polarization_vector(double k[4], complex double wp, sim5metric *metr
              + sqr(k[3])*metric->g33*s*(k[3]*a*s2*r2 + k[3]*a2*a*s2 - k[0]*r2 - k[0]*a2 - a2*s2*k[0])
              + sqr(k[3])*metric->g03*a*s*s2*(r2*k[0] + a2*k[0])
            );
-    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]); 
-    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]); 
+    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]);
+    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]);
 
     vector_norm_to(f, metric, 1.0);
 
     /*
     // f can be freely shifted by a multiple of k (f' = f + \alpha*k), therefore
-    // it has a freedom in one compoment and we can always set f in such a way 
+    // it has a freedom in one compoment and we can always set f in such a way
     // that its time-component will be zero (f[0]=0)
     // then we can solve this set of equations
     //   A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
     //   A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
     // along with the normalization condition
-    //   f.f = 1 
+    //   f.f = 1
     // and we will obtain (Maple was used for that) the following for components of f
     f[0] = 0.0;
     f[3] = (2.*g22*A2*s2*a*a2*k[2]*k[0]*k[3]-g22*A2*a2*k[2]*k[0]*k[0]-
@@ -910,8 +925,8 @@ void photon_polarization_vector(double k[4], complex double wp, sim5metric *metr
         2.*g33*k[0]*k[0]*k[0]*a*a2*s2*k[3]+g33*a2*s2*s2*k[3]*k[3]*k[3]*k[3]*r2*r2+
         2.*g33*a2*a2*s2*s2*k[3]*k[3]*k[3]*k[3]*r2-2.*g33*a2*a2*a*s2*s2*k[3]*k[3]*k[3]*k[0]+
         g33*a2*a2*s2*s2*k[3]*k[3]*k[0]*k[0])*s);
-    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]); 
-    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]); 
+    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]);
+    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]);
     */
 }
 
@@ -966,14 +981,6 @@ void fourvelocity_radial(double vr, sim5metric *m, double U[4])
 
 
 
-DEVICEFUNC INLINE 
-void bl(double p[4], double t, double r, double m, double phi)
-{
-    p[0] = t;
-    p[1] = r;
-    p[2] = m;
-    p[3] = phi;
-}
 
 
 
@@ -991,7 +998,7 @@ void kerr_metric2(double a, double r, double m, double *gTT, double *gRR, double
     *gTT = -A/(S*D);
     *gRR = D/S;
     *gHH = 1/S;
-    *gFF = (D - a2*(1.-m2))/(D*S*(1.-m2)); 
+    *gFF = (D - a2*(1.-m2))/(D*S*(1.-m2));
     *gTF = -2.*a*r/(D*S);
 }
 
@@ -1002,32 +1009,32 @@ void ortho_tetrad_U(
     double g00, double g11, double g22, double g33, double g03,
     double e0[4], double e1[4], double e2[4], double e3[4])
 //*********************************************************
-// calculates a convenient orthonormal tetrad for a fluid with 
-// four-velocity U, which satisfies condition U^\phi >> U^r, U^\theta 
+// calculates a convenient orthonormal tetrad for a fluid with
+// four-velocity U, which satisfies condition U^\phi >> U^r, U^\theta
 // see Krolik, Hawley & Hirose (2005), ApJ, 622, 1088
 //     Beckwith, Hawley, Krolik (2008), MNRAS, 390, 21 (corrected formulae)
 // - puts y-vector oriented along increasing phi
 {
 
-    double k1 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + U[0]*(2.*g03*U[3]+g00*U[0]))); 
-    double k2 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + g22*sqr(U[2]) + U[0]*(2.*g03*U[3]+g00*U[0]))); 
+    double k1 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + U[0]*(2.*g03*U[3]+g00*U[0])));
+    double k2 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + g22*sqr(U[2]) + U[0]*(2.*g03*U[3]+g00*U[0])));
     double k3 = sqrt(fabs(g33*sqr(U[3]) + U[0]*(2.*g03*U[3]+g00*U[0])));
     double f;
-    
-    e0[0] = U[0]; 
-    e0[1] = U[1]; 
-    e0[2] = U[2]; 
-    e0[3] = U[3]; 
+
+    e0[0] = U[0];
+    e0[1] = U[1];
+    e0[2] = U[2];
+    e0[3] = U[3];
 
     f = +1./(k1*k3);
-    e1[0] = f * sqrt(g11)*U[1]*U[0]; 
+    e1[0] = f * sqrt(g11)*U[1]*U[0];
     e1[1] = f * sqr(k3)/sqrt(g11);
     e1[2] = 0.0;
-    e1[3] = f * sqrt(g11)*U[1]*U[3]; 
+    e1[3] = f * sqrt(g11)*U[1]*U[3];
 
     f = -1./(k1*k2);
-    e2[0] = f * sqrt(g22)*U[2]*U[0];  
-    e2[1] = f * sqrt(g22)*U[2]*U[1]; 
+    e2[0] = f * sqrt(g22)*U[2]*U[0];
+    e2[1] = f * sqrt(g22)*U[2]*U[1];
     e2[2] = f * sqr(k1)/sqrt(g22);
     e2[3] = f * sqrt(g22)*U[2]*U[3];
 
@@ -1044,7 +1051,7 @@ void ortho_tetrad_U_phi_r_motion(
     double g00, double g11, double g22, double g33, double g03,
     double e0[4], double e1[4], double e2[4], double e3[4])
 //*********************************************************
-// calculates a convenient orthonormal tetrad for a fluid with 
+// calculates a convenient orthonormal tetrad for a fluid with
 // four-velocity U, which satisfies condition U^\theta = 0
 // - puts x-vector oriented along increasing r, but tilted into phi by U^r boost
 // - puts z-vector oriented along decreasing theta (goes "upwards" from eq plane)
@@ -1054,20 +1061,20 @@ return;
 // orientation of vecotrs is unclear
 
 /*
-    double k1 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + U[0]*(2.*g03*U[3]+g00*U[0]))); 
+    double k1 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + U[0]*(2.*g03*U[3]+g00*U[0])));
     double k3 = sqrt(fabs(g33*sqr(U[3])                 + U[0]*(2.*g03*U[3]+g00*U[0])));
     double f;
-    
-    e0[0] = U[0]; 
-    e0[1] = U[1]; 
-    e0[2] = 0.0; 
-    e0[3] = U[3]; 
+
+    e0[0] = U[0];
+    e0[1] = U[1];
+    e0[2] = 0.0;
+    e0[3] = U[3];
 
     f = +1./(k1*k3);
-    e1[0] = f * sqrt(g11)*U[1]*U[0]; 
+    e1[0] = f * sqrt(g11)*U[1]*U[0];
     e1[1] = f * sqr(k3)/sqrt(g11);
     e1[2] = 0.0;
-    e1[3] = f * sqrt(g11)*U[1]*U[3]; 
+    e1[3] = f * sqrt(g11)*U[1]*U[3];
 
     e2[0] = 0.0;
     e2[1] = 0.0;
@@ -1120,7 +1127,7 @@ void stokes_infty(double a, double inc, double alpha, double beta, double kappa1
 //    double S = l/sin(inc) - a*sin(inc) = -alpha - a*sin(inc)
 //    double T = sqrt(q - pow(l*cos(inc)/sin(inc),2.) + pow(a*cos(inc),2.)) = beta
 //    this should be considered for k_\theta<0: if (k_\theta|_\infty < 0) T = -T
-    double S = -alpha - a*sin(inc); 
+    double S = -alpha - a*sin(inc);
     double T = +beta;
     double X = (-S*kappa2 - T*kappa1)/(S*S+T*T);
     double Y = (-S*kappa1 + T*kappa2)/(S*S+T*T);
