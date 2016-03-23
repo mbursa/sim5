@@ -23,7 +23,7 @@
 
 
 
-inline
+DEVICEFUNC INLINE
 long sim5_interp_search(const double x_array[], double x, long index_lo, long index_hi)
 // perform a search of an array of values
 // - the parameters index_lo and index_hi provide an initial bracket, and it is assumed 
@@ -35,17 +35,15 @@ long sim5_interp_search(const double x_array[], double x, long index_lo, long in
 //   may not correspond to what you expect)
 // - complete specification of the behaviour is the following:
 //     suppose the input x_array[] = { x0, x1, ..., xN }
-//     if ( x == x0 )           then  index == 0
-//     if ( x > x0 && x <= x1 ) then  index == 0, and sim. for other interior pts
-//     if ( x == xN )           then  index == N-1
-//     if ( x > xN )            then  index == N-1
-//     if ( x < x0 )            then  index == 0 
+//     if ( x <= x[0] )               then  index == 0
+//     if ( x >= x[i] && x < x[i+1] ) then  index == i
+//     if ( x >= x[N] )               then  index == N-1
 {
     long ilo = index_lo;
     long ihi = index_hi;
     while(ihi > ilo + 1) {
         long i = (ihi + ilo)/2;
-        if(x_array[i] > x)
+        if (x < x_array[i])
             ihi = i;
         else
             ilo = i;
@@ -56,8 +54,8 @@ long sim5_interp_search(const double x_array[], double x, long index_lo, long in
 
 
 
-inline 
-long sim5_interp_search_accel(sim5interp* interp, double x)
+DEVICEFUNC INLINE 
+static long sim5_interp_search_accel(sim5interp* interp, double x)
 // performs an accelerated search of an array of values having cached the last used index
 {
     long x_index = interp->last_index;
@@ -76,7 +74,108 @@ long sim5_interp_search_accel(sim5interp* interp, double x)
 
 
 
+DEVICEFUNC
+static void spline(double x[], double y[], int n, double yp1, double ypn, double y2[])
+//! Calculates second derivatives of function y[]=f(x[]) for cubic spline interpolation.
+//! - given arrays x[] and y[] containing a tabulated function y=f(x),
+//!   with and given values yp1 and ypn for the first derivative of the interpolating
+//!   function at points 1 and n , respectively
+//! - the routine returns an array y2[1..n] that contains the second derivatives 
+//!   of the interpolating function at the tabulated points x i . 
+//! - if yp1 and/or ypn are larger than 1e30, respectively, the routine is signaled 
+//!   to set the corresponding boundary condition for a natural spline, with zero 
+//!   second derivative on that boundary
+//! (routine from Numerical Recipes in C)
+{
+    int i,k;
+    double p, qn, sig, un, *u;
 
+    //MALLOC(u,float,n-1);
+    u = (double*)malloc((n-1)*sizeof(double));
+    if (u == NULL) exit(EXIT_FAILURE);
+    //fprintf(stderr,"ERR %s line %d: Memory allocation failure.\n",  __FILE__, __LINE__);
+
+    if(yp1 > 0.99e30)
+        y2[0] = u[0] = 0.0;
+    else{
+        y2[0] = -0.5;
+        u[0] = (3.0/(x[1]-x[0]))*((y[1]-y[0])/(x[1]-x[0])-yp1);
+    }
+
+    for(i = 1; i < n-1; i++){
+        sig = (x[i] - x[i-1])/(x[i+1] - x[i-1]);
+        p = sig*y2[i-1] + 2.0;
+        y2[i] = (sig - 1.0)/p;
+        u[i] = (y[i+1] - y[i])/(x[i+1] - x[i]) - (y[i] - y[i-1])/(x[i] - x[i-1]);
+        u[i] = (6.0*u[i]/(x[i+1] - x[i-1]) - sig*u[i-1])/p;
+    }
+
+    if(ypn > 0.99e30)
+        qn = un = 0.0;
+    else{
+        qn = 0.5;
+        un = (3.0/(x[n-1] - x[n-2]))*(ypn - (y[n-1] - y[n-2])/(x[n-1] - x[n-2]));
+    }
+
+    y2[n-1] = (un - qn*u[n-2])/(qn*y2[n-2] + 1.0);
+
+    for(k = n-2; k >= 0; k--){
+        y2[k] = y2[k]*y2[k+1] + u[k];
+    }
+
+    free(u);
+}
+
+
+
+DEVICEFUNC
+static double splint(double xa[], double ya[], double y2a[], int n, double x)
+//! Cubic spline interpolation.
+//! - given the arrays xa[] and ya[] of dimension N, which tabulate a function and
+//!   given the array y2a[] , which is the output from spline() routine,
+//!   this routine returns a cubic-spline interpolated value y at point x
+//! - xa[] must be orderd array
+//! (routine from Numerical Recipes in C)
+{
+    int  klo,khi,k;
+    double h,b,a;
+    static int pklo=0, pkhi=1;
+
+    #pragma omp threadprivate(pklo,pkhi)
+
+    // Assuming that calls to this function are made with closely-spaced, 
+    // steadily-increasing values of x, we first try using the same values of klo and khi 
+    // as were used in the previous invocation. 
+    // If that interval is no longer correct, a standard binary search looks for the correct interval.
+    if(xa[pklo] <= x && xa[pkhi] > x){
+        klo = pklo;
+        khi = pkhi;
+    }
+    else{
+        klo = 0;
+        khi = n-1;
+        while (khi-klo > 1){
+            k = (khi + klo) >> 1;
+            if(xa[k] > x) khi = k; else klo = k;
+        }
+        pklo = klo;
+        pkhi = khi;
+    }
+
+    h = xa[khi] - xa[klo];
+    // we can skip this check since have checked that already during sim5interp initialization
+    //if (h == 0.0) {
+    //    fprintf(stderr,"-E- %s line %d: Bad xa input to function splint()\n", __FILE__,__LINE__);
+    //    exit(EXIT_FAILURE);
+    //}
+    a = (xa[khi] - x)/h;
+    b = (x - xa[klo])/h;
+    return  a*ya[klo] + b*ya[khi] + ((a*a*a - a)*y2a[klo] + (b*b*b - b)*y2a[khi])*(h*h)/6.0;
+}
+
+
+
+DEVICEFUNC
 sim5interp* sim5_interp_alloc()
 // makes a memory allocation for interpolation object
 // - this function is optional and it is for heap-allocated variant of usage:
@@ -94,7 +193,7 @@ sim5interp* sim5_interp_alloc()
 
 
 
-
+DEVICEFUNC
 void sim5_interp_init(sim5interp* interp, double xa[], double ya[], long N, int data_model, int interp_type, int interp_options)
 // initializion of the interpolation object interp for the data (xa,ya) where xa and ya are arrays of size N
 // - data_model determines how data should be handled, see description of constants INTERP_DATA_xxx
@@ -105,9 +204,16 @@ void sim5_interp_init(sim5interp* interp, double xa[], double ya[], long N, int 
 //   the original arrays can be modified or freed after calling sim5_interp_init)
 // - xa data array is always assumed to be strictly ordered, with increasing x values; the behavior for other arrangements undefined
 {
+    if ((interp_type==INTERP_TYPE_SPLINE) && (interp_options & INTERP_OPT_CAN_EXTRAPOLATE)) {
+        fprintf(stderr, "ERR (sim5_interp_init): spline interpolation cannot be used with extrapolation option\n");
+        return;
+    }    
+
+
     interp->datamodel = data_model;
     interp->type      = interp_type;
     interp->options   = interp_options;
+    interp->d2Y       = NULL;
 
     // check of order
     if ((interp->datamodel==INTERP_DATA_REF) || (interp->datamodel==INTERP_DATA_COPY)) {
@@ -168,6 +274,7 @@ void sim5_interp_init(sim5interp* interp, double xa[], double ya[], long N, int 
 
 
 
+DEVICEFUNC
 void sim5_interp_data_push(sim5interp* interp, double x, double y)
 // pushed the pair [x,y] into interpolation array
 // (x-data must be orderd)
@@ -201,12 +308,25 @@ void sim5_interp_data_push(sim5interp* interp, double x, double y)
 
 
 
+DEVICEFUNC
 double sim5_interp_eval(sim5interp* interp, double x)
 // makes the evalutaion if interpolated grid at point x
 {
     double x_lo, x_hi;
     double y_lo, y_hi;
     long index;
+
+    // treat spline interpolation seperately    
+    if (interp->type == INTERP_TYPE_SPLINE) {
+        // calculate second derivatives if they are not yet available
+        if (!interp->d2Y) {
+            interp->d2Y = (double*) malloc(interp->N*sizeof(double));
+            spline(interp->X, interp->Y, interp->N, 1e50, 1e50, interp->d2Y);
+        }
+        return splint(interp->X, interp->Y, interp->d2Y, interp->N, x);
+    }
+
+
 
     if ((!(interp->options & INTERP_OPT_CAN_EXTRAPOLATE)) && ((x < interp->xmin) || (x > interp->xmax))) {
         fprintf(stderr, "WRN (sim5_interp_eval): unwarranted extrapolation (x=%.4e, xmin=%.4e, xmax=%.4e)\n", x, interp->xmin, interp->xmax);
@@ -220,16 +340,16 @@ double sim5_interp_eval(sim5interp* interp, double x)
         index = sim5_interp_search(interp->X, x, 0, interp->N-1);
     }
 
+    x_lo = interp->X[index];
+    x_hi = interp->X[index + 1];
+    y_lo = interp->Y[index];
+    y_hi = interp->Y[index + 1];
 
-        x_lo = interp->X[index];
-        x_hi = interp->X[index + 1];
-        y_lo = interp->Y[index];
-        y_hi = interp->Y[index + 1];
-
-    if (x_lo >= x_hi) {
-        fprintf(stderr, "ERR (sim5_interp_eval: unordered X grid (x[%ld]=%.4e, x[%ld]=%.4e, N=%ld)\n", index, x_lo, index+1, x_hi, interp->N);
-        return NAN; 
-    }
+    // seems unnecessary as we have checked on order of X array already on initialization
+    //if (x_lo >= x_hi) {
+    //    fprintf(stderr, "ERR (sim5_interp_eval: unordered X grid (x[%ld]=%.4e, x[%ld]=%.4e, N=%ld)\n", index, x_lo, index+1, x_hi, interp->N);
+    //    return NAN; 
+    //}
 
     switch (interp->type) {
         case INTERP_TYPE_LINLIN:
@@ -250,17 +370,20 @@ double sim5_interp_eval(sim5interp* interp, double x)
 }
 
 
+/*
 double sim5_interp_integral(sim5interp* interp, double a, double b)
-// makes the evalutaion if interpolated grid at point x
+// makes the evalutaion of interpolated grid at point x
 {
     int i, N = 500;
     double result = 0.0;
     for (i=0; i<N; i++) result += sim5_interp_eval(interp, a+(i+0.5)*(b-a)/(N));
     return result*(b-a)/N;
 }
+*/
 
 
 
+DEVICEFUNC
 void sim5_interp_done(sim5interp* interp)
 // function frees the interpolation object interp (including a copied data, if necessary)
 {
@@ -268,6 +391,8 @@ void sim5_interp_done(sim5interp* interp)
         free(interp->X);
         free(interp->Y);
     }
+
+    if (interp->d2Y) free(interp->d2Y);
 
     interp->N = 0;
     interp->capa = 0;
@@ -277,7 +402,7 @@ void sim5_interp_done(sim5interp* interp)
 
 
 
-
+DEVICEFUNC
 void sim5_interp_free(sim5interp* interp)
 // function frees the interpolation object interp that had been previously alocated by sim5_interp_alloc
 {
@@ -306,5 +431,6 @@ int main() {
 }
 
 #endif
+
 
 
