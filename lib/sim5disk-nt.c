@@ -23,6 +23,9 @@ static float disk_rms   = 6.0;
 static float disk_alpha = 0.1;
 static int   options    = 0;
 
+
+
+DEVICEFUNC
 int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _options)
 {
     bh_mass    = M;
@@ -45,13 +48,14 @@ int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _optio
 
 
 
+DEVICEFUNC
 void disk_nt_finish()
 {
 }
 
 
 
-//! 
+DEVICEFUNC 
 double disk_nt_r_min()
 {
     double a = bh_spin;
@@ -65,6 +69,7 @@ double disk_nt_r_min()
 
 
 
+DEVICEFUNC
 double disk_nt_flux(double r)
 //! Gets local flux at given radius for Novikov-Thorne accretion disk.
 //! Provides radial radiation flux dependence for Novikov-Thorne accretion disk.
@@ -104,13 +109,17 @@ double disk_nt_flux(double r)
 
 
 
+DEVICEFUNC
 double disk_nt_lum()
 //! Gets total disk luminosity.
 //! Luminosity is obtained by integrating local flux over the surface area _without_ relativistic corrections.
 //! ```L = 2*2pi \int F r dr```
 //! @result Total disk luminosity through both surfaces [erg s-1]
 {
-    const float disk_rmax = 100000.;
+    const float disk_rmax = 1e5;
+    /*
+    // this is the original code that uses GSL:
+    
     double r1;
     int nflux;
 
@@ -150,11 +159,37 @@ double disk_nt_lum()
     gsl_integration_workspace_free(iws);
     free(flux[0]);
     free(flux[1]);
+    */
+
+
+    // integrate disk luminosity from r_ms to disk_rmax rg
+    // - the integration uses 'logarithmic rule': L = \int f(x) dx \int f(x)*x d(log(x))
+    
+    double func_luminosity(double log_r)
+    {
+        double r = exp(log_r);
+        // calculate U_t
+        double gtt = -1. + 2./r;
+        double gtf = -2.*bh_spin/r;
+        double gff = sqr(r) + sqr(bh_spin) + 2.*sqr(bh_spin)/r;
+        double Omega = 1./(bh_spin + pow(r,1.5));
+        double U_t = sqrt(-1.0/(gtt + 2.*Omega*gtf + sqr(Omega)*gff)) * (gtt + Omega*gtf);
+        double F = disk_nt_flux(r);
+        // dL = 2pi*r*F(r) dr
+        return 2.*M_PI*r*2.0*(-U_t)*F * r;
+    }
+
+    double L = integrate_simpson(func_luminosity, log(disk_rms), log(disk_rmax), 1e-5);
+
+    // fix units to erg/s
+    L *= sqr(bh_mass*grav_radius);
+    
     return L/(L_Edd*bh_mass);
 }
 
 
 
+DEVICEFUNC
 double disk_nt_mdot()
 {
     return disk_mdot;
@@ -162,6 +197,7 @@ double disk_nt_mdot()
 
 
 
+DEVICEFUNC
 double disk_nt_temp(double r)
 {
     return sqrt4(disk_nt_flux(r)/sb_sigma);
@@ -169,6 +205,7 @@ double disk_nt_temp(double r)
 
 
 
+DEVICEFUNC
 double disk_nt_sigma(double r)
 {
     if (r < disk_rms) return 0.0;
@@ -211,6 +248,7 @@ double disk_nt_sigma(double r)
 
 
 
+DEVICEFUNC
 double disk_nt_ell(double r)
 {
     double a = bh_spin;
@@ -220,6 +258,7 @@ double disk_nt_ell(double r)
 
 
 
+DEVICEFUNC
 double disk_nt_vr(double r)
 {
     return 0.0;
@@ -227,6 +266,7 @@ double disk_nt_vr(double r)
 
 
 
+DEVICEFUNC
 double disk_nt_h(double r)
 {
     return 0.0;
@@ -234,6 +274,7 @@ double disk_nt_h(double r)
 
 
 
+DEVICEFUNC
 double disk_nt_dhdr(double r)
 {
     return 0.0;
@@ -241,6 +282,7 @@ double disk_nt_dhdr(double r)
 
 
 
+DEVICEFUNC
 void disk_nt_dump()
 {
     const float disk_rmax = 2000.;
@@ -275,6 +317,7 @@ void disk_nt_dump()
 
 
 
+DEVICEFUNC
 double disk_nt_find_mdot_for_luminosity(double L0) {
     double L;
 
