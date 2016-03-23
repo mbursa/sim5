@@ -16,7 +16,7 @@
 // x, y, and z must be nonnegative, and at most one can be zero. See "Numerical
 // Recipes in C" by W. H. Press et al. (Chapter 6)
 DEVICEFUNC
-static double rf(double x, double y, double z)
+double rf(double x, double y, double z)
 {
 	const double ERRTOL=0.0003, rfTINY=3.*DBL_MIN, rfBIG=DBL_MAX/3., THIRD=1.0/3.0;
 	const double C1=1.0/24.0, C2=0.1, C3=3.0/44.0, C4=1.0/14.0;
@@ -55,7 +55,7 @@ static double rf(double x, double y, double z)
 // x, y, and z must be nonnegative, and at most one can be zero. z must be positive.
 // See "Numerical Recipes in C" by W. H. Press et al. (Chapter 6)
 DEVICEFUNC
-static double rd(double x, double y, double z) {
+double rd(double x, double y, double z) {
 	const double ERRTOL=0.0003, rdTINY=3.*DBL_MIN, rdBIG=DBL_MAX/3.;
 	const double C1=3.0/14.0, C2=1.0/6.0, C3=9.0/22.0, C4=3.0/26.0, C5=0.25*C3, C6=1.5*C4;
 	double alamb,ave,delx,dely,delz,ea,eb,ec,ed,ee,fac,sqrtx,sqrty,sqrtz,sum,xt,yt,zt;
@@ -101,7 +101,7 @@ static double rd(double x, double y, double z) {
 // x must be nonnegative and y must be nonzero.
 // If y < 0, the Cauchy principal value is returned.
 DEVICEFUNC
-static double rc(double x, double y) {
+double rc(double x, double y) {
 	const double ERRTOL=0.0003, rcTINY=3.*DBL_MIN, rcBIG=DBL_MAX/3.;
 	const double THIRD=1.0/3.0, C1=0.3, C2=1.0/7.0, C3=0.375, C4=9.0/22.0;
 	const double COMP1=2.236/sqrt(rcTINY),COMP2=sqr(rcTINY*rcBIG)/25.0;
@@ -141,7 +141,7 @@ static double rc(double x, double y) {
 // If p < 0, the Cauchy principal value is returned.
 // See "Numerical Recipes in C" by W. H. Press et al. (Chapter 6)
 DEVICEFUNC
-static double rj(double x, double y, double z, double p) {
+double rj(double x, double y, double z, double p) {
 	const double ERRTOL=0.0003, rjTINY=pow(5.0*DBL_MIN,1./3.), rjBIG=0.3*pow(0.1*DBL_MAX,1./3.);
 	const double C1=3.0/14.0, C2=1.0/3.0, C3=3.0/22.0, C4=3.0/26.0,
 		C5=0.75*C3, C6=1.5*C4, C7=0.5*C2, C8=C3+C3;
