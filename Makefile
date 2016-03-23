@@ -1,5 +1,6 @@
-CFLAGS = -Wall -Wextra -Wno-unused-parameter -O3 -fPIC -Ilib -Llib
-LFLAGS = -lm -lgsl -lgslcblas
+CFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas -O3 -fPIC -Ilib -Llib
+#LFLAGS = -lm -lgsl -lgslcblas
+LFLAGS = -lm
 
 default: lib
 
@@ -20,7 +21,7 @@ cuda: lib-clean
 	nvcc -arch=sm_35 -Ilib -Llib -O3 -dc lib/sim5lib.cu
 
 lib-clean:
-	echo "BCleaning..."
+	@echo "Cleaning..."
 	@rm -f lib/*.o
 
 python: lib
