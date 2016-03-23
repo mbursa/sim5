@@ -357,7 +357,10 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
         #ifdef CUDA
         if (bpa) asm("exit;");
         #else
-        if (bpa) error("(geodesic_position_azm) cannot be (bpa) && (nrr==2)");
+        if (bpa) {
+            error("(geodesic_position_azm) cannot be (bpa) && (nrr==2)");
+            return NAN;
+        }
         #endif
         double r1 = creal(g->r1);
         double r2 = creal(g->r2);
