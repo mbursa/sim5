@@ -14,30 +14,19 @@
 #include "sim5config.h"
 #include "sim5include.h"
 
-#ifndef CUDA
 #include "sim5const.h"
 #include "sim5utils.h"
 #include "sim5math.h"
+#include "sim5integration.h"
+#include "sim5interpolation.h"
+#include "sim5distributions.h"
 #include "sim5roots.h"
-#include "sim5kerr.h"
-#include "sim5raytrace.h"
 #include "sim5elliptic.h"
 #include "sim5polyroots.h"
+#include "sim5raytrace.h"
+#include "sim5kerr.h"
 #include "sim5kerr-geod.h"
 #include "sim5disk-nt.h"
-#include "sim5interpolation.h"
-#else
-#include "sim5const.h"
-#include "sim5utils.h"
-#include "sim5math.h"
-#include "sim5roots.h"
-#include "sim5kerr.h"
-#include "sim5raytrace.h"
-#include "sim5elliptic.h"
-#include "sim5polyroots.h"
-#include "sim5kerr-geod.h"
-#endif
-
 
 #endif
 
