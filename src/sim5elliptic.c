@@ -25,7 +25,8 @@ double rf(double x, double y, double z)
 	if ((min(min(x,y),z) < 0.0) || (min(min(x+y,x+z),y+z) < rfTINY) || (max(max(x,y),z) > rfBIG)) {
         #ifndef CUDA
 		warning("%e/%e/%e\n", x,y,z);
-		error("invalid arguments in rf");
+		error("invalid arguments in rf %e/%e/%e", x,y,z);
+		backtrace();
         #endif
 	}
 
@@ -479,7 +480,7 @@ double elliptic_pi_sin(double sin_phi, double n, double m)
 DEVICEFUNC INLINE
 double jacobi_isn(double y, double emmc)
 {
-    return y*rf(1-y*y,1.0-emmc*y*y,1.0);
+    return y*rf(1.0-y*y,1.0-emmc*y*y,1.0);
 }
 
 

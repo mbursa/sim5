@@ -17,13 +17,13 @@
 */
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 long sim5round(double num) {
  return (long)(num+0.5);
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 long int factorial(long int n)
 {
 	if (n<=1) return(1);	else n=n*factorial(n-1);
@@ -31,7 +31,7 @@ long int factorial(long int n)
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double reduce_angle_pi(double phi)
 // returns angle in the interval [0..pi]
 {
@@ -41,7 +41,7 @@ double reduce_angle_pi(double phi)
 }
 
 
-DEVICEFUNC INLINE 
+DEVICEFUNC INLINE
 double reduce_angle_2pi(double phi)
 // returns angle in the interval [0..2pi]
 {
@@ -64,11 +64,33 @@ int ensure_range(double *val, double min, double max, double acc)
 
 
 
+
+DEVICEFUNC INLINE 
+void sim5seed()
+{
+    mt19937_init(time(NULL));
+}
+
+DEVICEFUNC INLINE 
+unsigned long long sim5rand()
+{
+    return mt19937_int64();
+}
+
+DEVICEFUNC INLINE 
+double sim5urand()
+{
+    return mt19937_real1();
+}
+
+
+
+/*
 #ifdef CUDA
-    __device__ 
-#endif 
+    __device__
+#endif
 long rndseed = 0x4d544750;
-DEVICEFUNC 
+DEVICEFUNC
 double urand()
 {
     #if LONG_MAX > (16807*2147483647)
@@ -84,6 +106,7 @@ double urand()
 	return (double)(rndseed)/m;
     #endif
 }
+*/
 
 
 DEVICEFUNC
@@ -154,16 +177,16 @@ sim5complex nullComplex()
 #ifdef CUDA
 
 DEVICEFUNC INLINE
-double creal (sim5complex a) 
-{ 
-    return a.x; 
+double creal (sim5complex a)
+{
+    return a.x;
 }
 
 
 DEVICEFUNC INLINE
-double cimag (sim5complex a) 
-{ 
-    return a.y; 
+double cimag (sim5complex a)
+{
+    return a.y;
 }
 
 
@@ -177,7 +200,7 @@ sim5complex cconj (sim5complex a)
 DEVICEFUNC INLINE
 double cabs(sim5complex a)
 {
-    // implementation guards against intermediate underflow and overflow by scaling 
+    // implementation guards against intermediate underflow and overflow by scaling
 
     double x = creal(a);
     double y = cimag(a);
@@ -186,7 +209,7 @@ double cabs(sim5complex a)
     y = (double)fabs(y);
     if (x > y) {
         v = x;
-        w = y; 
+        w = y;
     } else {
         v = y;
         w = x;
@@ -230,10 +253,10 @@ sim5complex cmul(sim5complex a, sim5complex b)
 DEVICEFUNC INLINE
 sim5complex cdiv(sim5complex a, sim5complex b)
 {
-    // implementation guards against intermediate underflow and overflow by scaling 
+    // implementation guards against intermediate underflow and overflow by scaling
 
     sim5complex quot;
-    double s = ((double)fabs((double)creal(b))) + 
+    double s = ((double)fabs((double)creal(b))) +
                ((double)fabs((double)cimag(b)));
     double oos = 1.0 / s;
     double ars = creal(a) * oos;
@@ -290,7 +313,7 @@ sim5complex catan(sim5complex a)
 
     //This is a naive implementation which does not fully
     //take into account cancellation errors, overflow, underflow
-    //etc.  It would benefit from the Hull et al treatment. 
+    //etc.  It would benefit from the Hull et al treatment.
     double r = hypot(re,im);
     double imag;
     double u = 2.*im / (1. + r*r);
@@ -327,7 +350,7 @@ sim5complex catan(sim5complex a)
 
 
 
- 
+
 inline DEVICEFUNC sim5complex operator+(sim5complex a, sim5complex b)
 {
     return cadd(a,b);

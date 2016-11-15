@@ -28,4 +28,6 @@ void array_reverse(void* array);
 
 char* key_value_get(const char *string, const char *key);
 
+void backtrace();
+
 #endif 

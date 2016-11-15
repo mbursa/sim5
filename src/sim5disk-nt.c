@@ -10,12 +10,12 @@
 
 //! \file sim5disk-nt.c
 //! Thin disk routines
-//!
-//! Provides routines for thin disk.
+//! 
+//! Provides routines for Novikov-Thorne thin disk model
 
 
 
-
+// TODO: these should be made thread local
 static float bh_mass    = 10.0;
 static float bh_spin    = 0.0;
 static float disk_mdot  = 0.1;
@@ -27,6 +27,21 @@ static int   options    = 0;
 
 DEVICEFUNC
 int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _options)
+//! Set up a relativistic (Novikov-Thorne) model of thin disk.
+//! The disk can be set up using either mass accretion rate or luminosity. In case of Mdot, this is 
+//! specified as a ratio of actual accretion rate in grams per second to the Eddington mass acretion rate 
+//! corresponding to the given mass. The Eddington mass accretion rate constant is declared in sim5const.h.
+//! In case of luminosity, the model sets accretion rate such that the integrated disk luminosity matches 
+//! the given value in ergs/sec relative to the Eddington luminosity again declared in sim5const.h.
+//!
+//! @param M mass of central BH [M_sun]
+//! @param a spin of central BH [0..1]
+//! @param mdot_or_L mass accretion rate (default) or luminosity (both in eddington units; see sim5const.h)
+//! @param alpha viscosity parameter
+//! @param options optional switches (default=0; switches can be combined with `+` operator)
+//!        * DISK_NT_OPTION_LUMINOSITY: `mdot_or_L` parameter is interpreted as luminosity
+//!
+//! @result A status code (currently zero)
 {
     bh_mass    = M;
     bh_spin    = a;
@@ -50,13 +65,20 @@ int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _optio
 
 DEVICEFUNC
 void disk_nt_finish()
+//! Finalize the disk model.
+//! Cleans up and frees memory.
 {
 }
 
 
 
-DEVICEFUNC 
+DEVICEFUNC
 double disk_nt_r_min()
+//! Minimal radius of the disk (disk inner edge).
+//! Provides minimal value for radius for which the functions provide valid results. 
+//! For NT disk, this corresponds to the radius of marginally stable orbit (r_ms), where there is zero torque in the fluid.
+//!
+//! @result Radius of disk inner edge [GM/c2]
 {
     double a = bh_spin;
     double z1,z2,r0;
@@ -71,17 +93,15 @@ double disk_nt_r_min()
 
 DEVICEFUNC
 double disk_nt_flux(double r)
-//! Gets local flux at given radius for Novikov-Thorne accretion disk.
+//! Local flux from one side of the disk.
 //! Provides radial radiation flux dependence for Novikov-Thorne accretion disk.
-//! * formulae based on Page&Thorne(1974) http://adsabs.harvard.edu/abs/1974ApJ...191..499P
-//! * output: 
-//! * note: the result is valid for BH mass of unit M_sun and Eddington accretion rate;
-//!       it shall be adjusted for actuall BH mass and acc rate following the scaling
-//!       F ~ mdot/m, where m=M/M_sun and mdot=Mdot/(M/M_sun*Mdot_Edd)
+//! Formulae based on Page&Thorne(1974) http://adsabs.harvard.edu/abs/1974ApJ...191..499P
+//!
+//! Note the retuned flux is local flux, i.e. flux measured by observer that is at rest with respect to the fluid.
 //!
 //! @param r radius of emission [GM/c2]
 //!
-//! @result Total outgoing flux through one side of the disk [erg cm-2 s-1]
+//! @result Total outgoing flux from unit area on one side of the disk [erg cm-2 s-1]. 
 {
     if (r <= disk_rms) return 0.0;
     double a = bh_spin;
@@ -104,6 +124,9 @@ double disk_nt_flux(double r)
     // F ~ mdot/m * Mdot_Edd * G^-2 * c^6 * M_sun^-2 [kg s^-3] = mdot/m * 9.172138e+28 [erg cm^-2 s^-1]
     // (Mdot_Edd*gram2kg)/sqr(grav_const)*sqr3(speed_of_light2)/sqr(solar_mass)*joule2erg/msq2cmsq = 9.1721376255e+28
 
+    // the result shall be adjusted for actuall BH mass and acc rate following the scaling
+    // F~mdot/m, where m=M/M_sun and mdot=Mdot/(M/M_sun*Mdot_Edd)
+
     return 9.1721376255e+28 * F * disk_mdot/bh_mass; // [erg cm^-2 s^-1]
 }
 
@@ -112,59 +135,20 @@ double disk_nt_flux(double r)
 DEVICEFUNC
 double disk_nt_lum()
 //! Gets total disk luminosity.
-//! Luminosity is obtained by integrating local flux over the surface area _without_ relativistic corrections.
-//! ```L = 2*2pi \int F r dr```
-//! @result Total disk luminosity through both surfaces [erg s-1]
+//! Luminosity is obtained by integrating local flux over the surface area of the disk 
+//! going into the whole sky (4pi solid angle). 
+//! The integration makes a proper transformation of local flux to coordinate frame, but 
+//! ignores other relativistic effects like light bending.
+//!
+//! \f[L = 2 * 2\pi \int F(r) r dr\f]
+//!
+//! @result Total disk luminosity of both surfaces [erg s-1]
 {
     const float disk_rmax = 1e5;
-    /*
-    // this is the original code that uses GSL:
-    
-    double r1;
-    int nflux;
-
-    nflux=0;
-    for (r1=disk_rms; r1<disk_rmax; r1*=1.005) nflux++;
-
-    double* flux[2];
-    flux[0] = (double*) calloc(nflux, sizeof(double));
-    flux[1] = (double*) calloc(nflux, sizeof(double));
-
-    int i = 0;
-    for(r1=disk_rms; i<nflux; r1*=1.005) {
-        flux[0][i] = r1*bh_mass*grav_radius; // radius in [cm]
-        flux[1][i] = 2.0*disk_nt_flux(r1); // double-sided flux in [erg cm-2 s-1];
-        i++;
-    }
-
-    gsl_spline *splineF;
-    gsl_interp_accel *accF;
-    splineF = gsl_spline_alloc(gsl_interp_linear, nflux);
-    accF    = gsl_interp_accel_alloc();
-    gsl_spline_init(splineF, flux[0], flux[1], nflux);
-
-
-
-    double func_luminosity(double x, void* params)
-    {
-        return 2.*M_PI*x*gsl_spline_eval(splineF,x,accF);
-    }
-
-    gsl_integration_workspace *iws = gsl_integration_workspace_alloc(1000);
-    gsl_function F;
-    F.function = &func_luminosity;
-    F.params = NULL;
-    double L, err;
-    gsl_integration_qag(&F, flux[0][0], flux[0][nflux-1], 0, 1e-3, 1000, GSL_INTEG_GAUSS15, iws, &L, &err);
-    gsl_integration_workspace_free(iws);
-    free(flux[0]);
-    free(flux[1]);
-    */
-
 
     // integrate disk luminosity from r_ms to disk_rmax rg
     // - the integration uses 'logarithmic rule': L = \int f(x) dx \int f(x)*x d(log(x))
-    
+
     double func_luminosity(double log_r)
     {
         double r = exp(log_r);
@@ -175,7 +159,7 @@ double disk_nt_lum()
         double Omega = 1./(bh_spin + pow(r,1.5));
         double U_t = sqrt(-1.0/(gtt + 2.*Omega*gtf + sqr(Omega)*gff)) * (gtt + Omega*gtf);
         double F = disk_nt_flux(r);
-        // dL = 2pi*r*F(r) dr
+        // dL = 2pi*r*F(r) dr, extra r comes from log integration
         return 2.*M_PI*r*2.0*(-U_t)*F * r;
     }
 
@@ -183,7 +167,7 @@ double disk_nt_lum()
 
     // fix units to erg/s
     L *= sqr(bh_mass*grav_radius);
-    
+
     return L/(L_Edd*bh_mass);
 }
 
@@ -191,6 +175,10 @@ double disk_nt_lum()
 
 DEVICEFUNC
 double disk_nt_mdot()
+//! Mass accretion rate.
+//! Returns mass accretion rate in Eddington units. See `disk_nt_setup()` for details.
+//!
+//! @result Mass accretion rate in Eddington units.
 {
     return disk_mdot;
 }
@@ -199,6 +187,13 @@ double disk_nt_mdot()
 
 DEVICEFUNC
 double disk_nt_temp(double r)
+//! Effective temperature.
+//! Returns disk effective temperature at given radius. The temperature value corresponds to 
+//! total outgoing flux at thar radius through the Steffan-Boltzmann law.
+//!
+//! @param r radius (measured in equatorial plane) [rg]
+//!
+//! @result Effective surface temperatute in [K].
 {
     return sqrt4(disk_nt_flux(r)/sb_sigma);
 }
@@ -207,6 +202,15 @@ double disk_nt_temp(double r)
 
 DEVICEFUNC
 double disk_nt_sigma(double r)
+//! Column density.
+//! Returns midplane column density of the fluid at given radius for the first two zones 
+//! according to formulae from Chandrasekhar book.
+//!
+//! \f[ \Sigma = \int_0^H \rho dz \f]
+//!
+//! @param r radius (measured in equatorial plane) [rg]
+//!
+//! @result Midplane column density in [g/cm2].
 {
     if (r < disk_rms) return 0.0;
     double a = bh_spin;
@@ -235,7 +239,7 @@ double disk_nt_sigma(double r)
     double xMdot = disk_mdot*bh_mass*Mdot_Edd/1e17;
     double r_im = 40.*(pow(disk_alpha,2./21.)/pow(bh_mass/3.,2./3.)*pow(xMdot,16./20.)) * pow(xA,20./21.) *
     pow(xB,-36./21.) * pow(xD,-8./21.) * pow(xE,-10./21.) * pow(xL,16./21.);
-    
+
     double Sigma;
     if (r < r_im)
         Sigma = 20. * (bh_mass/3.)/xMdot/disk_alpha * sqrt(r*r*r) * 1./(xA*xA) * pow(xB,3.) * sqrt(xC) * xE * 1./xL;
@@ -250,6 +254,12 @@ double disk_nt_sigma(double r)
 
 DEVICEFUNC
 double disk_nt_ell(double r)
+//! Specific angular momentum.
+//! Returns specific angular momentum of the fluid at given radius. 
+//!
+//! @param r radius (measured in equatorial plane) [rg]
+//!
+//! @result Specific angular momentum in [g.u.].
 {
     double a = bh_spin;
     r = max(disk_rms, r);
@@ -260,6 +270,13 @@ double disk_nt_ell(double r)
 
 DEVICEFUNC
 double disk_nt_vr(double r)
+//! Radial velocity.
+//! Returns bulk radial velocity of the fluid at given radius. 
+//! (For thin disk approximation, this is always zero.)
+//!
+//! @param r radius (measured in equatorial plane) [rg]
+//!
+//! @result Radial velocity in [speed_of_light].
 {
     return 0.0;
 }
@@ -268,6 +285,13 @@ double disk_nt_vr(double r)
 
 DEVICEFUNC
 double disk_nt_h(double r)
+//! Surface height.
+//! Returns height of the surface of the disk (effective photosphere) above midplane at given radius. 
+//! (For thin disk approximation, this is always zero.)
+//!
+//! @param r radius (measured in equatorial plane) [rg]
+//!
+//! @result Radial velocity in [speed_of_light].
 {
     return 0.0;
 }
@@ -276,6 +300,13 @@ double disk_nt_h(double r)
 
 DEVICEFUNC
 double disk_nt_dhdr(double r)
+//! Derivative of surface height.
+//! Returns surface profile as derivative \f$dH/dR\f$ of its height above midplane at given radius. 
+//! (For thin disk approximation, this is always zero.)
+//!
+//! @param r radius (measured in equatorial plane) [rg]
+//!
+//! @result Derivative of surface height.
 {
     return 0.0;
 }
@@ -284,6 +315,8 @@ double disk_nt_dhdr(double r)
 
 DEVICEFUNC
 void disk_nt_dump()
+//! Dump function printing disk provile.
+//! The function prints to stdout profile of all quantities as a function fo radius from r_ms to some outer radius (~2000 rg).
 {
     const float disk_rmax = 2000.;
     printf("# (sim5disk-nt) dump\n");
@@ -299,7 +332,7 @@ void disk_nt_dump()
     printf("#-------------------------------------------\n");
     printf("# r   flux   sigma   ell   vr   H   dH/dr\n");
     printf("#-------------------------------------------\n");
- 
+
     double r;
     for (r=disk_rms; r<disk_rmax; r*=1.05) {
         printf(
@@ -317,6 +350,7 @@ void disk_nt_dump()
 
 
 
+// private routine to iteratively find mdot that corresponds to given luminosity
 DEVICEFUNC
 double disk_nt_find_mdot_for_luminosity(double L0) {
     double L;
@@ -328,7 +362,6 @@ double disk_nt_find_mdot_for_luminosity(double L0) {
 
     int res = rtbis(0.0, 100.0, 1e-6, fce, &L);
     return (res) ? L : 0.0;
-}   
-
+}
 
 

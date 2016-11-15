@@ -13,9 +13,9 @@
 #define _SIM5POLYROOTS_H
 
 
-DEVICEFUNC int quadratic_eq(double pr, double pi, double qr, double qi, double *zr, double *zi);
-DEVICEFUNC int cubic_eq(double p, double q, double r, double *zr, double *zi);
-DEVICEFUNC int quartic_eq(double a3, double a2, double a1, double a0, double *zr, double *zi);
+DEVICEFUNC int quadratic_eq(double pr, double pi, double qr, double qi, double zr[2], double zi[2]);
+DEVICEFUNC int cubic_eq(double p, double q, double r, double zr[3], double zi[3]);
+DEVICEFUNC int quartic_eq(double a3, double a2, double a1, double a0, double zr[4], double zi[4]);
 DEVICEFUNC void sort_roots_re(double *r1, double *r2, double *r3, double *r4);
 DEVICEFUNC void sort_mix(double *r1, double *r2, int *s);
 DEVICEFUNC void sort_mix2(double *r1, double *r2, int *s);

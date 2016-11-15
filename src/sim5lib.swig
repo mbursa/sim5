@@ -34,15 +34,13 @@
 %include "sim5kerr-geod.h"
 %include "sim5disk-nt.h"
 
-///*
 // vector() routine has been added to sim5kerr.c
-//%pythoncode %{
-//def vector(components):
-//    v  = doubleArray(4)
-//    v[0] = components[0]
-//    v[1] = components[1]
-//    v[2] = components[2]
-//    v[3] = components[3]
-//    return v
-//%}
-//*/
+%pythoncode %{
+def sim5vector(components):
+    v  = doubleArray(4)
+    v[0] = components[0]
+    v[1] = components[1]
+    v[2] = components[2]
+    v[3] = components[3]
+    return v
+%}

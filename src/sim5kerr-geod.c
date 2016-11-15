@@ -50,6 +50,7 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
     g->cos_i = cos(i);
     g->alpha = alpha;
     g->beta  = beta;
+    g->x = 0.0;
 
     // constants of motion
     g->l = -alpha*sin(i);
@@ -59,12 +60,19 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
         // we are not yet ready to handle this case (Dexter&Agol provide a solution)
         // skip it silently
         if (status) *status = 0;
+        fprintf(stderr,"q=0\n");
         return FALSE;
     }
 
     // get geodesic
     if (!geodesic_priv_R_roots(g, status)) return FALSE;
     if (!geodesic_priv_T_roots(g, status)) return FALSE;
+
+    // value of T-integral between turning points \int[-\mu_plus..\mu_plus]
+	g->Tpp = 2.*theta_int(0.0);
+
+    // value of T-integral between observer's position and turning point \int[cos_i..\mu_plus]
+	g->Tip = theta_int(g->cos_i);
 
     if (status) *status = 1;
     return TRUE;
@@ -90,6 +98,8 @@ int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodes
 //!     * status is 1 if setup is sucessfull, 0 in case of an error
 //!     * information about geodesic is stored in structure g
 {
+    if (a < 1e-8) a = 1e-8;
+
     // calculate motion constants
     double l,q;
     photon_motion_constants(a, r, m, k, &l, &q);
@@ -97,12 +107,19 @@ int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodes
     g->a = a;
     g->l = l;
     g->q = q;
+    g->x = 0.0;
 
     // ...
     g->i = g->cos_i = g->alpha = g->beta = NAN;
 
     if (!geodesic_priv_R_roots(g, status)) return FALSE;
     if (!geodesic_priv_T_roots(g, status)) return FALSE;
+    
+    // r is bellow radial turning point - this geodesic cannot escape
+    if (r < g->rp) {
+        if (status) *status = 0;
+        return FALSE;
+    }
 
     // determine at-infinity parameters of the geodesic (inclination, impact parameters)
     // - inclination is poloidal coordinate to which the photon in its current direction will arrive
@@ -164,7 +181,7 @@ double geodesic_P_int(geodesic *g, double r, int bpa)
     #ifdef CUDA
     if (r  < g->rp) asm("exit;");
     #else
-    if (r  < g->rp) error("geodesic_P_int: r < periastron (%.3e < %.3e)", r, g->rp);
+    if (r  < g->rp) error("geodesic_P_int: r < periastron (%.3e < %.3e; nrr=%d)", r, g->rp, g->nrr);
     #endif
     if (r == g->rp) return g->Rpa;
 
@@ -313,6 +330,7 @@ double geodesic_position_pol(geodesic *g, double P)
     while (P > T+g->Tpp) {
         T += g->Tpp;
         sign_dm = -sign_dm;
+        //fprintf(stderr,"P=%.3e T=%.3e T+Tpp=%.3e delta=%.3e\n", P, T, T+g->Tpp, P-T-g->Tpp);
     }
 
     return -sign_dm*theta_inv(P-T);
@@ -376,6 +394,7 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
     }
 
     // part 2 - T integral
+    // TODO it should be checked if that works for photons with m2m<0
     double phi_pp = 2.0*g->l/g->a*integral_T_mp(g->m2m, g->m2p, 1.0, 0.0);
     double phi_ip =     g->l/g->a*integral_T_mp(g->m2m, g->m2p, 1.0, g->cos_i);
     double phi_mp =     g->l/g->a*integral_T_mp(g->m2m, g->m2p, 1.0, m);
@@ -410,6 +429,9 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
 DEVICEFUNC
 double geodesic_timedelay(geodesic *g, double P1, double P2)
 //! Gives travel-time (timedelay) between positions P1 and P2.
+//! 
+//! Returned value is always positive (independent of relative position of 
+//! P1 and P2 along the geodesic).
 //!
 //! Parameters:
 //!     g      - geodesic
@@ -417,7 +439,7 @@ double geodesic_timedelay(geodesic *g, double P1, double P2)
 //!     P2     - value of the position integral at point B
 //!
 //! Returns:
-//!     timedelay between position P1 and P1 (point A and B)
+//!     timedelay (positive) between position P1 and P2 (point A and B)
 {
     #ifndef CUDA
     warning("(geodesic_timedelay): not implemented yet\n");
@@ -470,6 +492,7 @@ double geodesic_timedelay(geodesic *g, double P1, double P2)
     }
 
     // part 2 - T integral
+    // TODO it should be checked if that works for photons with m2m<0
     double time_pp = 2.0*g->l/g->a*integral_T_m2(g->m2m, g->m2p, 1.0, 0.0);
     double time_ip =     g->l/g->a*integral_T_m2(g->m2m, g->m2p, 1.0, g->cos_i);
     double time_mp =     g->l/g->a*integral_T_m2(g->m2m, g->m2p, 1.0, m);
@@ -499,6 +522,8 @@ double geodesic_timedelay(geodesic *g, double P1, double P2)
     double Pmp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0);
     double Pmo = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, g->cos_i);
     double Pme = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, fabs(mu_e));
+    // TODO it should be checked if that works for photons with m2m<0
+
 
     x += (g->beta>=0.0) ? Tmp-Tmo : Tmo;                             // shift T to the nearest higher \mu=0 or \mu=\mu_plus
     T -= (g->beta>=0.0) ? Pmp-Pmo : Pmo;
@@ -566,6 +591,37 @@ double geodesic_find_midplane_crossing(geodesic *g, int order)
 
 
 
+DEVICEFUNC
+void geodesic_follow(geodesic *g, double step, double *P, double *r, double *m, int *status)
+// follows geodesic by evolution of g.x from its initial point (has to be set prior to call to follow())
+// P, r, m has to be valid values on initial call
+{
+    const double MAXSTEP_FACTOR = 1e-2;
+    double rbh = r_bh(g->a);
+
+    do {
+        double truestep = step/fabs(step) * min(fabs(step), MAXSTEP_FACTOR*sqrt(*r));
+        (*P) = (*P) + truestep/(sqr(*r)+sqr((g->a)*(*m)));   // d(afp)/d(x) = r^2 + a^2*m^2
+        (*r) = geodesic_position_rad(g, *P);
+        (*m) = geodesic_position_pol(g, *P);
+        if ((*r) < 1.01*rbh) {
+            *status = 0;
+            return;
+        }
+        step -= truestep;
+    } while (fabs(step) > 1e-5);
+
+    //int brp;
+    //double ksgn_2;
+    //photon_momentum(g->a, _r, _m, g->l, g->q, brp?-1:+1, ksgn_2, g->k);
+    //void photon_momentum(double a, double r, double m, double l, double q2, double r_sign, double m_sign, double k[4])
+
+    *status = 1;
+}
+
+
+
+
 
 
 
@@ -605,6 +661,7 @@ double geodesic_find_midplane_crossing(geodesic *g, int order)
 DEVICEFUNC
 int geodesic_priv_R_roots(geodesic *g, int *status)
 // find roots of the R-integral
+// http://adsabs.harvard.edu/abs/1998NewA....3..647C
 {
     double a  = g->a;
     double l  = g->l;
@@ -636,6 +693,7 @@ int geodesic_priv_R_roots(geodesic *g, int *status)
         // we do not yet know how to handle the case of non-equatorial photons
         // skip it silently
         if (status) *status = 0;
+        fprintf(stderr,"nrr=0\n");
         return FALSE;
     }
 
@@ -716,41 +774,41 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
         fprintf(stderr,"m2p<0 (%e/%f/%f)\n", g->m2p,l,q);
         #endif
         if (status) *status = 0;
+        fprintf(stderr,"T err1\n");
         return FALSE;
     }
 
     // for q<0.0 (photons that do not cross eq plane):
     if (q < 0.0) {
         // tbd
-    }
-
-    if (g->m2m >= 0.0) {
-        g->m2 = g->m2p/(g->m2p+g->m2m);
-        if (g->m2>=1.0) {
-            *status=0; 
-            #ifndef CUDA
-            fprintf(stderr,"WRN:g->m2>=1.0\n");
-            #endif
-            return FALSE;
-        }
-        if (!ensure_range(&g->m2, 0.0, 1.0, 1e-5)) {
-            #ifndef CUDA
-            //fprintf(stderr,"m2<0 (%e)\n", g->m2);
-            #endif
-            if (status) *status = 0;
-            return FALSE;
-        }
-    } else {
-        //g->m2 = g->m2p/(g->m2p-g->m2m);
-        // we do not yet know how to handle the case of non-equatorial photons
-        // skip it silently
-        #ifndef CUDA
-        #endif
         if (status) *status = 0;
         return FALSE;
     }
 
+    g->m2 = (g->m2m>0.0) ? g->m2p/(g->m2p+g->m2m) : g->m2p/(g->m2p-g->m2m);
+
+    if (g->m2>=1.0) {
+        *status=0;
+        #ifndef CUDA
+        fprintf(stderr,"WRN:g->m2>=1.0\n");
+        #endif
+        fprintf(stderr,"T err2\n");
+        return FALSE;
+    }
+    if (!ensure_range(&g->m2, 0.0, 1.0, 1e-5)) {
+        #ifndef CUDA
+        //fprintf(stderr,"m2<0 (%e)\n", g->m2);
+        #endif
+        if (status) *status = 0;
+        fprintf(stderr,"T err3\n");
+        return FALSE;
+    }
+
     g->mK = 1./sqrt(a2*(g->m2p+g->m2m));
+
+    //fprintf(stderr,"m2m=%.3e\n", g->m2m);
+    //fprintf(stderr,"m2p=%.3e\n", g->m2p);
+    //fprintf(stderr,"mK =%.3e\n", g->mK);
 
     return TRUE;
 }
@@ -1190,6 +1248,7 @@ void geodesic_s2i_solution_eqplane(geodesic *g, int order, double *r, int *beyon
 
 
 
+/*
 DEVICEFUNC
 void geodesic_s2i_solution_surface(geodesic *g, double *r, double *m, double (*H)(double), double accuracy, int *status)
 {
@@ -1262,9 +1321,9 @@ void geodesic_s2i_solution_surface(geodesic *g, double *r, double *m, double (*H
 
 
 DEVICEFUNC
-void geodesic_s2i_follow_init(geodesic *g, double rmax, int *status)
+void x_geodesic_s2i_follow_init(geodesic *g, double rmax, int *status)
 {
-/*
+/ *
     #ifndef CUDA
     if (rmax<10.0) fprintf(stderr, "WRN: rmax should be >10 (geodesic_s2i_follow_init)\n");
     #endif
@@ -1281,7 +1340,7 @@ void geodesic_s2i_follow_init(geodesic *g, double rmax, int *status)
     *status = 1;
 //    fprintf(stderr, "I> x=%.3e  t=%.3e  dxds=%.3e\n", g->x, g->_t, g->_dxds);
 //    fprintf(stderr, "I> f=%.3f\n", geodesic_s2i_phi(g, g->x, NULL, NULL)*180/M_PI);
-*/
+* /
     #ifndef CUDA
     if (rmax<10.0) fprintf(stderr, "WRN: rmax should be >10 (geodesic_s2i_follow_init)\n");
     #endif
@@ -1293,9 +1352,9 @@ void geodesic_s2i_follow_init(geodesic *g, double rmax, int *status)
 
 
 DEVICEFUNC
-void geodesic_s2i_follow(geodesic *g, double step, double *r, double *m, double *f, double *t, int *status)
+void x_geodesic_s2i_follow(geodesic *g, double step, double *r, double *m, double *f, double *t, int *status)
 {
-/*
+/ *
     int brp;
     double ksgn_2;
     double dx = step*g->_dxds;
@@ -1331,7 +1390,7 @@ void geodesic_s2i_follow(geodesic *g, double step, double *r, double *m, double 
     if (ds)(*ds)= new_ds;
     if ((r)&&(m)) photon_momentum(g->a, g->q, g->l, *r, *m, brp?-1:+1, ksgn_2, g->k);
     *status = (new_r > r_bh(g->a));
-*/
+* /
 
     int brp;
     double ksgn_2;
@@ -1362,7 +1421,7 @@ void geodesic_s2i_follow(geodesic *g, double step, double *r, double *m, double 
 
     *status = 1;
 }
-
+*/
 
 #undef theta_int
 #undef theta_inv

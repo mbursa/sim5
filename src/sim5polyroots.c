@@ -12,12 +12,21 @@
 #endif
 */
 
-// Calculate the roots of z^2 + p z + q = 0, and the number of real roots. Here
-// p and q are complex numbers. We use the algorithm recommended in "Numerical
-// Recipes". Input: pr = Re(p), pi = Im (p), qr = Re(q), qi = Im(q). Output: 
-// the number of real roots, and solutions of z. zr = Re(z), zi = Im(z).
 DEVICEFUNC
-int quadratic_eq(double pr, double pi, double qr, double qi, double *zr, double *zi)
+int quadratic_eq(double pr, double pi, double qr, double qi, double zr[2], double zi[2])
+//! Roots of qudratic equation.
+//! Calculates the roots of z^2 + p z + q = 0 and the number of real roots, where p and q are complex numbers. 
+//! The solution can have 2 real roots, 1 real and 1 complex roots, or 2 complex roots. 
+//! The function uses the algorithm recommended in "Numerical Recipes". 
+//! 
+//! @param pr Re(p)
+//! @param pi Im(p)
+//! @param qr Re(q)
+//! @param qi Im(q)
+//! @param zr array to store real parts of quadratic roots
+//! @param zr array to store imaginary parts of quadratic roots
+//!
+//! @result Number of real roots, plus the roots in `zr` and `zi`.
 {
 /*
   complex bb, bb2, cc, del, qq, z1, z2;
@@ -88,12 +97,18 @@ int quadratic_eq(double pr, double pi, double qr, double qi, double *zr, double 
 }
 
 
-// Calculate the roots of z^3 + p z^2 + q z + r = 0, and the number of real roots. 
-// Here p, q, and r are real numbers. We use the algorithm recommended in "Numerical
-// Recipes". Input: p, q, r. Output: the number of real roots, and solutions of z. 
-// zr = Re(z), zi = Im(z).
 DEVICEFUNC
-int cubic_eq(double p, double q, double r, double *zr, double *zi)
+int cubic_eq(double p, double q, double r, double zr[3], double zi[3])
+//! Roots of cubic equation.
+//! Calculates the roots of z^3 + p z^2 + q z + r = 0 and the number of real roots, where p, q, r are real numbers. 
+//! 
+//! @param p coeficient p
+//! @param q coeficient q
+//! @param r coeficient r
+//! @param zr array to store real parts of cubic roots
+//! @param zr array to store imaginary parts of cubic roots
+//!
+//! @result Number of real roots, plus the roots in `zr` and `zi`.
 {
   double x1, x2, x3, y1, y2, y3;
   double theta, aa, bb, qq, rr;
@@ -309,11 +324,19 @@ void sort_roots(int *s, sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5c
 
 
 
-// Calculate the roots of z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0, and the number of 
-// real roots. Here a0, a1, a2, and a3 are real numbers. Input: a3, a2, a1. 
-// Output: the number of real roots, and solutions of z. zr = Re(z), zi = Im(z).
 DEVICEFUNC
-int quartic_eq(double a3, double a2, double a1, double a0, double *zr, double *zi)
+int quartic_eq(double a3, double a2, double a1, double a0, double zr[4], double zi[4])
+//! Roots of quartic equation.
+//! Calculates the roots of z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 and the number of real roots, where a0, a1, a2, a3 are real numbers. 
+//! 
+//! @param a3 coeficient a3
+//! @param a2 coeficient a2
+//! @param a1 coeficient a1
+//! @param a0 coeficient a0
+//! @param zr array to store real parts of cubic roots
+//! @param zr array to store imaginary parts of cubic roots
+//!
+//! @result Number of real roots, plus the roots in `zr` and `zi`.
 {
   double u1, pp, qq, rr, sup, del;
   double x1, x2, x3, x4, y1, y2, y3, y4;
@@ -425,8 +448,22 @@ DEVICEFUNC
 void quartic_eq_c(
 	double a3, double a2, double a1, double a0, 
 	int *nr, 
-	//double complex *z1, double complex *z2, double complex *z3, double complex *z4)
 	sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5complex *z4)
+//! Roots of quartic equation (variant).
+//! Calculates the roots of z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 and the number of real roots, where a0, a1, a2, a3 are real numbers. 
+//! This variant returns all the root directly in 4 separate variables.
+//! 
+//! @param a3 coeficient a3
+//! @param a2 coeficient a2
+//! @param a1 coeficient a1
+//! @param a0 coeficient a0
+//! @param nrr number or real roots (output)
+//! @param z1 first root (output)
+//! @param z2 second root (output)
+//! @param z3 third root (output)
+//! @param z4 fourth root (output)
+//!
+//! @result Number of real roots and the roots in `nrr` and `z1`...`z4`.
 {
 	double zr[4];
 	double zi[4];

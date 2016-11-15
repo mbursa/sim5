@@ -1,3 +1,20 @@
+//************************************************************************
+//    SIM5 library
+//    sim5raytrace.c - step-wise raytracing
+//------------------------------------------------------------------------
+//    Author:
+//    Michal Bursa (bursa@astro.cas.cz)
+//    Astronomical Institute of the Czech Academy of Sciences
+//************************************************************************
+
+
+//! \file sim5raytrace.c
+//! Raytracing.
+//! 
+//! Provides routines for step-wise raytracing.
+
+
+
 /*
 #include "sim5config.h"
 #ifndef CUDA
@@ -13,17 +30,41 @@
 */
 
 
+//! \cond SKIP
+//! (skip doc for these)
 #define frac_error(a,b) (fabs((b)-(a))/(fabs(b)+1e-40))
 #define vect_copy(v1,v2) {v2[0]=v1[0]; v2[1]=v1[1]; v2[2]=v1[2]; v2[3]=v1[3];}
-#define max_error       1e-2
+//! \endcond
+
+//! default maximal relative error of raytracing
+#define raytrace_max_error 1e-2
 
 
 DEVICEFUNC
 void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], double presision_factor, int options, raytrace_data* rtd)
+//! Raytracing with step-wise null-geodesic integration.
+//! Makes one step along the geodesic that is tangent to `k` and updates input vectors with new values.
+//! The integration method follows Dolence+2009 (http://adsabs.harvard.edu/abs/2009ApJS..184..387D).
+//! 
+//! The routine automatically controls size of the step based on curvature and required precission. 
+//! On each call to raytrace() the routine takes a step size, which is smaller of the two: the internally 
+//! chosen step size and step size that is passed on input in `step`.
+//!
+//! Numerical precision of integration is driven by the precision_factor modifier and raytrace_max_error constant; 
+//! roughly, final error (after whole geodesic is integrated) is: 
+//! maximal relative error  = (a factor of few) * raytrace_max_error * precision_factor.
+//!
+//! @param bh_spin black hole spin
+//! @param x initial position vector
+//! @param k initial direction vector (photon 4-momentum)
+//! @param f initial polarization vector (optional, can be NULL)
+//! @param precision_factor precision factor
+//! @param options additional options
+//! @param rtd raytracing data
 {
     // read options
-    rtd->opt_gr  = ((options & RTOPT_FLAT) == 0);
-    rtd->opt_pol = ((options & RTOPT_POLARIZATION) == RTOPT_POLARIZATION);
+    rtd->opt_gr  = !((options & RTOPT_FLAT) == RTOPT_FLAT);
+    rtd->opt_pol =  ((options & RTOPT_POLARIZATION) == RTOPT_POLARIZATION);
     rtd->step_epsilon = sqrt(presision_factor)/10.;   // note: precision ~ (step_epsilon)^2; step_epsilon=0.1 gives reasonable precision ~1e-3
 
     if (rtd->opt_pol) {
@@ -69,7 +110,7 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], dou
     if (rtd->opt_pol) Gamma(G, k, f, rtd->df);
 }
 
-
+//! \cond SKIP
 #ifdef CUDA
 DEVICEFUNC
 inline double k_deriv(int j, double _k[4], double G[4][4][4]) {
@@ -87,24 +128,34 @@ inline double f_deriv(int j, double _k[4], double _f[4], double G[4][4][4]) {
     return _dfi;
 }
 #endif
+//! \endcond
+
+
 
 
 DEVICEFUNC
 void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data* rtd)
-//***************************************************
-// routine for geodesic integration: makes one step along the geodesic and 
-// updates input vectors with new values
-// inputs: vectors of position <x>, momentum <k>, 
-//         polarization vector <f>, step size <dl> and state data <rtd>
-// output: updates all vectors <x>, <k>, <f>
-// see Dolence+2009 (http://adsabs.harvard.edu/abs/2009ApJS..184..387D)
-// - numerical precision: numerical precision is driven by the precision_factor 
-//   modifier and max_error constant; roughly, final error (after whole geodesic is 
-//   integrated) is: maximal relative error  = (a factor of few) * max_error * precision_factor;
-//   rtd->error gives the error in the current step and it should be bellow max_error*1e-2.
-//   so it is adviceable to check rtd->error continuously after each step and stop integration 
-//   when the error goes above ~1e-3; at the end of integration check Carter constant 
-//   relative difference
+//! Raytracing with step-wise null-geodesic integration.
+//! Makes one step along the geodesic that is tangent to `k` and updates input vectors with new values.
+//! The integration method follows Dolence+2009 (http://adsabs.harvard.edu/abs/2009ApJS..184..387D).
+//! 
+//! The routine automatically controls size of the step based on curvature and required precission. 
+//! On each call to raytrace() the routine takes a step size, which is smaller of the two: the internally 
+//! chosen step size and step size that is passed on input in `step`.
+//!
+//! Numerical precision is driven by the precision_factor modifier [see raytrace_prepare()];
+//! rtd->error gives the error in the current step and it should be bellow raytrace_max_error*1e-2;
+//! so it is adviceable to check rtd->error continuously after each step and stop integration 
+//! when the error goes above ~1e-3; at the end of integration one should then check 
+//! relative difference in Carter's constant with `raytrace_error()`.
+//!
+//! @param x position vector
+//! @param k direction vector (photon 4-momentum)
+//! @param f polarization vector (optional, can be NULL)
+//! @param step on input gives maximal step that the routine can take [GM/c2]; on output gives size of step that has actually been taken
+//! @param rtd raytracing data
+//!
+//! @result Position, direction and polarization (if not null) vectors and step size are updated, `rtd` has the relative error.
 {
     int i;
     //int iter = 0;
@@ -227,14 +278,14 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
         }
 
         k_iter++;
-	} while (k_frac_error>max_error*1e-3 && k_iter<3);
+	} while (k_frac_error>raytrace_max_error*1e-3 && k_iter<3);
 
 
     // precision check
     kt = kp[0]*m.g00 + kp[3]*m.g03;
     kk = fabs(dotprod(kp, kp, &m));
     rtd->error = max(frac_error(kt,rtd->kt), kk);
-	if ((k_frac_error>max_error*1e-2) || (rtd->error>max_error*1e-2)) {
+	if ((k_frac_error>raytrace_max_error*1e-2) || (rtd->error>raytrace_max_error*1e-2)) {
         vect_copy(x_orig, x);
         vect_copy(k_orig, k);
         if (rtd->opt_pol) vect_copy(f_orig, f);
@@ -279,6 +330,7 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
 
 
 
+//! \cond SKIP
 DEVICEFUNC
 void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_data* rtd)
 {
@@ -389,10 +441,21 @@ void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_dat
 	}
     */
 }
+//! \endcond
 
 
 DEVICEFUNC
 double raytrace_error(double x[4], double k[4], double f[4], raytrace_data* rtd)
+//! Raytracing error.
+//! Gives relative error in raytracing in terms of relative difference of Carter's constant. 
+//! Useful for checking precission of integration.
+//! 
+//! @param x position vector
+//! @param k direction vector
+//! @param f polarization vector (optional, can be NULL)
+//! @param rtd raytracing data
+//!
+//! @result Relative error in raytracing.
 {
     sim5metric m;
     rtd->opt_gr ? kerr_metric(rtd->bh_spin, x[1], x[2], &m) : flat_metric(x[1], x[2], &m);
@@ -402,6 +465,6 @@ double raytrace_error(double x[4], double k[4], double f[4], raytrace_data* rtd)
 
 #undef frac_error
 #undef vect_copy
-#undef max_error
+#undef raytrace_max_error
 
 

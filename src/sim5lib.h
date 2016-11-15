@@ -14,6 +14,11 @@
 #include "sim5config.h"
 #include "sim5include.h"
 
+// external libs
+#include "mt19937/mt19937.h"
+
+
+// sim5lib parts
 #include "sim5const.h"
 #include "sim5utils.h"
 #include "sim5math.h"
@@ -27,7 +32,6 @@
 #include "sim5kerr.h"
 #include "sim5kerr-geod.h"
 #include "sim5disk-nt.h"
+#include "sim5radiation.h"
 
 #endif
-
-

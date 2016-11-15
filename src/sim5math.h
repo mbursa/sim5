@@ -14,6 +14,7 @@
 
 //#include "sim5config.h"
 
+
 #define M_2PI     (M_PI*2.0)
 #define M_4PI     (M_PI*4.0)
 #define M_PI_half (M_PI/2.0)
@@ -35,8 +36,12 @@
 #define EE(a) pow(10.0,a)
 #define ave(a, b, w) ((1.0-(w))*(a) + (w)*(b))
 #define logave(a, b, w) (exp((1.0-(w))*log(a) + (w)*log(b)))
-#define rnd ((double)rand()/(double)(RAND_MAX))
 #define inrange(a, min, max) (((a)>=(min))&&((a)<=(max)))
+
+
+#define rand  sim5rand()
+#define urand sim5urand()
+
 
 #ifdef CUDA
     typedef double2    sim5complex;
@@ -58,12 +63,14 @@ DEVICEFUNC INLINE double reduce_angle_2pi(double phi);
 
 DEVICEFUNC int ensure_range(double *val, double min, double max, double acc);
 
-DEVICEFUNC double urand();
 
 DEVICEFUNC void cartesian2spherical1(double x, double y, double z, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf);
 DEVICEFUNC void cartesian2spherical2(double cos_h, double sin_f, double cos_f, double Vx, double Vy, double Vz, double* Vr, double* Vh, double* Vf);
 
 
+DEVICEFUNC INLINE void sim5seed();
+DEVICEFUNC INLINE unsigned long long sim5rand();
+DEVICEFUNC INLINE double sim5urand();
 
 
 
@@ -72,4 +79,3 @@ DEVICEFUNC INLINE sim5complex makeComplex(double r, double i);
 DEVICEFUNC INLINE sim5complex nullComplex();
 
 #endif
-

@@ -53,13 +53,25 @@ DEVICEFUNC INLINE
 void vector(double x[4], double x0, double x1, double x2, double x3);
 
 DEVICEFUNC INLINE
+void vector_copy(double src[4], double dst[4]);
+
+DEVICEFUNC INLINE
 void vector_covariant(double V1[4], double V2[4], sim5metric* m);
 
 DEVICEFUNC INLINE
 double vector_norm(double V[4], sim5metric* m);
 
 DEVICEFUNC INLINE
-void vector_norm_to(double V[4], sim5metric* m, double norm);
+double vector_3norm(double V[4]);
+
+DEVICEFUNC INLINE
+void vector_norm_to(double V[4], double norm, sim5metric* m);
+
+DEVICEFUNC
+void vector_norm_to_null(double V[4], double V0, sim5metric* m);
+
+DEVICEFUNC INLINE
+void vector_multiply(double V[4], double factor);
 
 DEVICEFUNC INLINE
 double dotprod(double V1[4], double V2[4], sim5metric* m);
@@ -118,7 +130,8 @@ double Omega_from_ell(double ell, sim5metric *m);
 DEVICEFUNC INLINE
 double ell_from_Omega(double Omega, sim5metric *m);
 
-
+DEVICEFUNC INLINE
+double gfactorK(double r, double a, double l);
 
 DEVICEFUNC
 void photon_momentum(double a, double r, double m, double l, double q2, double r_sign, double m_sign, double k[4]);
@@ -133,7 +146,23 @@ DEVICEFUNC
 sim5complex photon_wp_const(double k[4], double f[4], sim5metric *metric);
 
 DEVICEFUNC
-void photon_polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4]);
+void polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4]);
 
+DEVICEFUNC
+double polarization_angle_infty(double a, double inc, double alpha, double beta, sim5complex kappa);
+
+
+DEVICEFUNC INLINE
+void fourvelocity_zamo(sim5metric *m, double U[4]);
+
+
+DEVICEFUNC INLINE
+void fourvelocity_azimuthal(double Omega, sim5metric *m, double U[4]);
+
+DEVICEFUNC INLINE
+void fourvelocity_radial(double vr, sim5metric *m, double U[4]);
+
+DEVICEFUNC INLINE
+double fourvelocity_norm(double U1, double U2, double U3, sim5metric *m);
 
 

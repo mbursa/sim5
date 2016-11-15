@@ -14,17 +14,17 @@
 DEVICEFUNC 
 static void integrate_trapezoid_rule(double(*f)(double), double a, double b, int n, double *s)
 //! Integration core routine based on trapezoid rule
-//! - computes the <n>-th stage of refinement of an extended trapezoidal rule for function
-//!   <f> and limits <a> and <b>
-//! - when called with n=1, the routine returns <s> as the crudest estimate of \int^a_b f(x) dx
+//! - computes the `n`-th stage of refinement of an extended trapezoidal rule for function
+//!   <f> and limits `a` and `b`
+//! - when called with n=1, the routine returns `s` as the crudest estimate of \f$\int^a_b f(x) dx\f$
 //! - subsequent calls with n=2,3,... (in that sequential order) will improve the accuracy 
-//!   of <s> by adding 2^(n-2) additional interior points.
-//! - <s> must not be modified between sequential calls
+//!   of `s` by adding 2^(n-2) additional interior points.
+//! - `s` must not be modified between sequential calls
 //! - implementation is based on Numerical Recipes with the improvement by GSL,
 //!   where a varible pointer is passed to the routine to store the value of 
 //!   the latest refinement instead of that being a global variable
 //! - calling scheme:
-//!   for(j=1; j<=M+1; j++) trapezoid_rule(func, a, b, j, &answer);
+//!   `for(j=1; j<=M+1; j++) trapezoid_rule(func, a, b, j, &answer);`
 {
     double x, tnm, sum, del;
     int it, j;
@@ -205,5 +205,6 @@ double qgaus_general(double w[], double y[], int N, double a, double b)
     for (j=0; j<N; j++) s += w[j]*y[j];
     return s*(b-a);  //Scale the answer to the range of integration.
 }
+
 
 

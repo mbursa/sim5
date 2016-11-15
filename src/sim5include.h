@@ -8,15 +8,9 @@
 #include <stddef.h>
 #include <string.h>
 #include <float.h>
+#include <time.h>
 #ifndef CUDA
 #include <complex.h>
 #endif
-
-/* GSL is not needed since 09/12/2015
-#ifndef CUDA
-#include <gsl/gsl_spline.h>
-#include <gsl/gsl_integration.h>
-#endif
-*/
 
 #endif

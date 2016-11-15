@@ -10,13 +10,21 @@
 
 void test_raytrace();
 void test_geodesic_init_src();
+void test_ntdisk();
+void test__gauss_distribution();
+void test__interpolation();
 
 
 int main() {
 
+    //test_ntdisk();
+
+    //test__interpolation();
+    test__gauss_distribution();
+
     //test_raytrace();
 
-    test_geodesic_init_src();
+    //test_geodesic_init_src();
 
 
     return 0;
@@ -206,7 +214,7 @@ void test_geodesic_init_src()
 
             raytrace_data rtd;
             double x[4];
-            bl(x, 0.0, r, 0.0, 0.0);
+            vector(x, 0.0, r, 0.0, 0.0);
             raytrace_prepare(a, x, k, NULL, 0.01, RTOPT_NONE, &rtd);
             while (1) {
                 double dl = 1e9; // use maximal step
@@ -241,4 +249,88 @@ void test_geodesic_init_src()
     }
     printf("tested: %d\n", tested);
 
+}
+
+
+void test_ntdisk()
+{
+    double mass  = 10.0;
+    double spin  = 0.0;
+    double mdot  = 1.0;
+    double alpha = 0.1;
+    disk_nt_setup(mass, spin, mdot, alpha, 0);
+    disk_nt_lum();   
+    printf("tested.\n");
+
+}
+
+
+void test__interpolation()
+{
+    const double x_min = -5.0;
+    const double x_max = +5.0;
+    const int N1 = 11;
+    const int N2 = 100;
+    
+    int i;
+    double x[N1];
+    double y[N1];
+    
+    double gauss(double _x) { return exp(-sqr(_x)/2.)/sqrt(2*M_PI); }
+
+    for (i=0; i<N1; i++) {
+        x[i] = x_min + (double)(i)*(x_max-x_min)/(double)(N1-1);
+        y[i] = gauss(x[i]);    
+    }
+    
+    sim5interp in;
+    sim5_interp_init(&in, x, y, N1, INTERP_DATA_COPY, INTERP_TYPE_SPLINE, 0);
+    for (i=0; i<N2; i++) {
+        double xx = x_min + (double)(i)*(x_max-x_min)/(double)(N2-1);
+        double yy = sim5_interp_eval(&in, xx);
+        printf("%.3e  %.3e  %.3e\n", xx, gauss(xx), yy);
+    }
+    sim5_interp_done(&in);
+}
+
+
+
+void test__gauss_distribution()
+{
+    const double x_min = -6.0;
+    const double x_max = +6.0;
+    const int N_pdf = 100;
+    const int N_hits = 300000000;
+    
+    int i;
+    sim5distrib d;
+    
+    double gauss_pdf(double _x) { return exp(-sqr(_x)/2.)/sqrt(2*M_PI); }
+
+    distrib_init(&d, gauss_pdf, x_min, x_max);  
+    printf("# norm=%e\n", d.norm);
+    
+    //for(i=0; i<d.icd.N; i++) printf("%e %e\n", d.icd.X[i], d.icd.Y[i]);
+    //return;
+ 
+    double* pdf_x = (double*)malloc(N_pdf*sizeof(double));
+    int* pdf_y = (int*)malloc(N_pdf*sizeof(int));
+    double dx = (x_max-x_min)/(double)(N_pdf-1);
+    for (i=0; i<N_pdf; i++) {
+        pdf_x[i] = x_min + (double)(i)*dx;
+        pdf_y[i] = 0.0;
+    }
+    
+    for (i=0; i<N_hits; i++) {
+        //long ix = sim5_interp_search(pdf_x, distrib_hit(&d), 0, N_pdf-1);
+        double x = distrib_hit(&d);
+        int ix = (int)( ((x+dx/2.)-x_min)/dx );
+        if ((ix>=0)&&(ix<N_pdf)) pdf_y[ix]++;
+    }
+
+    for (i=0; i<N_pdf; i++) printf("%.3e  %.3e  %.3e\n", pdf_x[i], (float)(pdf_y[i])/(float)(N_hits)/((x_max-x_min)/N_pdf), gauss_pdf(pdf_x[i])/d.norm);
+    
+    free(pdf_x);
+    free(pdf_y);
+    distrib_done(&d);
 }
