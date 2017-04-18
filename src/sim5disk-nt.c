@@ -13,20 +13,21 @@
 //! 
 //! Provides routines for Novikov-Thorne thin disk model
 
+#ifndef CUDA
 
 
 // TODO: these should be made thread local
-static float bh_mass    = 10.0;
-static float bh_spin    = 0.0;
-static float disk_mdot  = 0.1;
-static float disk_rms   = 6.0;
-static float disk_alpha = 0.1;
-static int   options    = 0;
+static float disk_nt_bh_mass    = 10.0;
+static float disk_nt_bh_spin    = 0.0;
+static float disk_nt_disk_mdot  = 0.1;
+static float disk_nt_disk_rms   = 6.0;
+static float disk_nt_disk_alpha = 0.1;
+static int   disk_nt_options    = 0;
 
 
 
 DEVICEFUNC
-int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _options)
+int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int options)
 //! Set up a relativistic (Novikov-Thorne) model of thin disk.
 //! The disk can be set up using either mass accretion rate or luminosity. In case of Mdot, this is 
 //! specified as a ratio of actual accretion rate in grams per second to the Eddington mass acretion rate 
@@ -43,20 +44,19 @@ int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _optio
 //!
 //! @result A status code (currently zero)
 {
-    bh_mass    = M;
-    bh_spin    = a;
-    disk_rms   = disk_nt_r_min();
-    disk_alpha = alpha;
-    options    = _options;
-    if (options & DISK_NT_OPTION_LUMINOSITY) {
-        disk_mdot = mdot_or_L;
-        double disk_nt_find_mdot_for_luminosity(double L0);
-        disk_mdot = disk_nt_find_mdot_for_luminosity(mdot_or_L);
-        //fprintf(stderr,"(disk-nt) final mdot for L=%.5f: mdot=%.5f (%.6e 10^18 g/s)\n", mdot_or_L, disk_mdot, disk_mdot*bh_mass*Mdot_Edd/1e18);
+    disk_nt_bh_mass    = M;
+    disk_nt_bh_spin    = a;
+    disk_nt_disk_rms   = disk_nt_r_min();
+    disk_nt_disk_alpha = alpha;
+    disk_nt_options    = options;
+    if (disk_nt_options & DISK_NT_OPTION_LUMINOSITY) {
+        DEVICEFUNC double disk_nt_find_mdot_for_luminosity(double L0);
+        disk_nt_disk_mdot = disk_nt_find_mdot_for_luminosity(mdot_or_L);
+        //fprintf(stderr,"(disk-nt) final mdot for L=%.5f: mdot=%.5f (%.6e 10^18 g/s)\n", mdot_or_L, disk_nt_disk_mdot, disk_nt_disk_mdot*disk_nt_bh_mass*Mdot_Edd/1e18);
     }
     else {
-        disk_mdot = mdot_or_L;
-        //fprintf(stderr,"(disk-nt) mdot set to %.5f: (%.6e 10^18 g/s; lum=%.5f)\n", disk_mdot, disk_mdot*bh_mass*Mdot_Edd/1e18, disk_nt_lum());
+        disk_nt_disk_mdot = mdot_or_L;
+        //fprintf(stderr,"(disk-nt) mdot set to %.5f: (%.6e 10^18 g/s; lum=%.5f)\n", disk_nt_disk_mdot, disk_nt_disk_mdot*disk_nt_bh_mass*Mdot_Edd/1e18, disk_nt_lum());
     }
     return 0;
 }
@@ -80,7 +80,7 @@ double disk_nt_r_min()
 //!
 //! @result Radius of disk inner edge [GM/c2]
 {
-    double a = bh_spin;
+    double a = disk_nt_bh_spin;
     double z1,z2,r0;
     double sga = (a>=0.0) ? +1. : -1.;
     z1 = 1.+pow(1.-a*a, 1./3.)*(pow(1.+a, 1./3.)+pow(1.-a, 1./3.));
@@ -103,11 +103,11 @@ double disk_nt_flux(double r)
 //!
 //! @result Total outgoing flux from unit area on one side of the disk [erg cm-2 s-1]. 
 {
-    if (r <= disk_rms) return 0.0;
-    double a = bh_spin;
+    if (r <= disk_nt_disk_rms) return 0.0;
+    double a = disk_nt_bh_spin;
     double x=sqrt(r);
     double x0,x1,x2,x3;
-    x0=sqrt(disk_rms);
+    x0=sqrt(disk_nt_disk_rms);
     x1=+2.*cos(1./3.*acos(a)-M_PI/3.);
     x2=+2.*cos(1./3.*acos(a)+M_PI/3.);
     x3=-2.*cos(1./3.*acos(a));
@@ -127,7 +127,7 @@ double disk_nt_flux(double r)
     // the result shall be adjusted for actuall BH mass and acc rate following the scaling
     // F~mdot/m, where m=M/M_sun and mdot=Mdot/(M/M_sun*Mdot_Edd)
 
-    return 9.1721376255e+28 * F * disk_mdot/bh_mass; // [erg cm^-2 s^-1]
+    return 9.1721376255e+28 * F * disk_nt_disk_mdot/disk_nt_bh_mass; // [erg cm^-2 s^-1]
 }
 
 
@@ -154,21 +154,21 @@ double disk_nt_lum()
         double r = exp(log_r);
         // calculate U_t
         double gtt = -1. + 2./r;
-        double gtf = -2.*bh_spin/r;
-        double gff = sqr(r) + sqr(bh_spin) + 2.*sqr(bh_spin)/r;
-        double Omega = 1./(bh_spin + pow(r,1.5));
+        double gtf = -2.*disk_nt_bh_spin/r;
+        double gff = sqr(r) + sqr(disk_nt_bh_spin) + 2.*sqr(disk_nt_bh_spin)/r;
+        double Omega = 1./(disk_nt_bh_spin + pow(r,1.5));
         double U_t = sqrt(-1.0/(gtt + 2.*Omega*gtf + sqr(Omega)*gff)) * (gtt + Omega*gtf);
         double F = disk_nt_flux(r);
         // dL = 2pi*r*F(r) dr, extra r comes from log integration
         return 2.*M_PI*r*2.0*(-U_t)*F * r;
     }
 
-    double L = integrate_simpson(func_luminosity, log(disk_rms), log(disk_rmax), 1e-5);
+    double L = integrate_simpson(func_luminosity, log(disk_nt_disk_rms), log(disk_rmax), 1e-5);
 
     // fix units to erg/s
-    L *= sqr(bh_mass*grav_radius);
+    L *= sqr(disk_nt_bh_mass*grav_radius);
 
-    return L/(L_Edd*bh_mass);
+    return L/(L_Edd*disk_nt_bh_mass);
 }
 
 
@@ -180,7 +180,7 @@ double disk_nt_mdot()
 //!
 //! @result Mass accretion rate in Eddington units.
 {
-    return disk_mdot;
+    return disk_nt_disk_mdot;
 }
 
 
@@ -212,12 +212,12 @@ double disk_nt_sigma(double r)
 //!
 //! @result Midplane column density in [g/cm2].
 {
-    if (r < disk_rms) return 0.0;
-    double a = bh_spin;
+    if (r < disk_nt_disk_rms) return 0.0;
+    double a = disk_nt_bh_spin;
 
     double x=sqrt(r);
     double x0,x1,x2,x3;
-    x0=sqrt(disk_rms);
+    x0=sqrt(disk_nt_disk_rms);
     x1=+2.*cos(1./3.*acos(a)-M_PI/3.);
     x2=+2.*cos(1./3.*acos(a)+M_PI/3.);
     x3=-2.*cos(1./3.*acos(a));
@@ -236,15 +236,15 @@ double disk_nt_sigma(double r)
     f3=3.*(x3-a)*(x3-a)/(x3*(x3-x2)*(x3-x1))*log((x-x3)/(x0-x3));
     xL = (1.+a/(x*x*x))/sqrt(1.-3./(x*x)+2.*a/(x*x*x))/x * (f0-f1-f2-f3);
 
-    double xMdot = disk_mdot*bh_mass*Mdot_Edd/1e17;
-    double r_im = 40.*(pow(disk_alpha,2./21.)/pow(bh_mass/3.,2./3.)*pow(xMdot,16./20.)) * pow(xA,20./21.) *
+    double xMdot = disk_nt_disk_mdot*disk_nt_bh_mass*Mdot_Edd/1e17;
+    double r_im = 40.*(pow(disk_nt_disk_alpha,2./21.)/pow(disk_nt_bh_mass/3.,2./3.)*pow(xMdot,16./20.)) * pow(xA,20./21.) *
     pow(xB,-36./21.) * pow(xD,-8./21.) * pow(xE,-10./21.) * pow(xL,16./21.);
 
     double Sigma;
     if (r < r_im)
-        Sigma = 20. * (bh_mass/3.)/xMdot/disk_alpha * sqrt(r*r*r) * 1./(xA*xA) * pow(xB,3.) * sqrt(xC) * xE * 1./xL;
+        Sigma = 20. * (disk_nt_bh_mass/3.)/xMdot/disk_nt_disk_alpha * sqrt(r*r*r) * 1./(xA*xA) * pow(xB,3.) * sqrt(xC) * xE * 1./xL;
     else {
-        Sigma = 5e4 * pow(bh_mass/3.,-2./5.)*pow(xMdot,3./5.)*pow(disk_alpha,-4./5.) * pow(r,-3./5.) * pow(xB,-4./5.) * sqrt(xC) * pow(xD,-4./5.) * pow(xL,3./5.);
+        Sigma = 5e4 * pow(disk_nt_bh_mass/3.,-2./5.)*pow(xMdot,3./5.)*pow(disk_nt_disk_alpha,-4./5.) * pow(r,-3./5.) * pow(xB,-4./5.) * sqrt(xC) * pow(xD,-4./5.) * pow(xL,3./5.);
     }
 
     return Sigma;
@@ -261,8 +261,8 @@ double disk_nt_ell(double r)
 //!
 //! @result Specific angular momentum in [g.u.].
 {
-    double a = bh_spin;
-    r = max(disk_rms, r);
+    double a = disk_nt_bh_spin;
+    r = max(disk_nt_disk_rms, r);
     return (r*r-2.*a*sqrt(r)+a*a) / (sqrt(r)*r-2.*sqrt(r)+a);
 }
 
@@ -321,12 +321,12 @@ void disk_nt_dump()
     const float disk_rmax = 2000.;
     printf("# (sim5disk-nt) dump\n");
     printf("#-------------------------------------------\n");
-    printf("# M        = %.4f\n", bh_mass);
-    printf("# a        = %.4f\n", bh_spin);
-    printf("# rmin     = %.4f\n", disk_rms);
+    printf("# M        = %.4f\n", disk_nt_bh_mass);
+    printf("# a        = %.4f\n", disk_nt_bh_spin);
+    printf("# rmin     = %.4f\n", disk_nt_disk_rms);
     printf("# rmax     = %.4f\n", disk_rmax);
-    printf("# alpha    = %.4f\n", disk_alpha);
-    printf("# options  = %d\n",   options);
+    printf("# alpha    = %.4f\n", disk_nt_disk_alpha);
+    printf("# options  = %d\n",   disk_nt_options);
     printf("# L        = %e\n", disk_nt_lum());
     printf("# mdot     = %e\n", disk_nt_mdot());
     printf("#-------------------------------------------\n");
@@ -334,7 +334,7 @@ void disk_nt_dump()
     printf("#-------------------------------------------\n");
 
     double r;
-    for (r=disk_rms; r<disk_rmax; r*=1.05) {
+    for (r=disk_nt_disk_rms; r<disk_rmax; r*=1.05) {
         printf(
             "%e  %e  %e  %e  %e  %e  %e\n",
             r,
@@ -352,11 +352,12 @@ void disk_nt_dump()
 
 // private routine to iteratively find mdot that corresponds to given luminosity
 DEVICEFUNC
-double disk_nt_find_mdot_for_luminosity(double L0) {
+double disk_nt_find_mdot_for_luminosity(double L0)
+{
     double L;
 
     double fce(double xmdot) {
-        disk_mdot = xmdot;
+        disk_nt_disk_mdot = xmdot;
         return L0-disk_nt_lum();
     }
 
@@ -364,4 +365,4 @@ double disk_nt_find_mdot_for_luminosity(double L0) {
     return (res) ? L : 0.0;
 }
 
-
+#endif

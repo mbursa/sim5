@@ -12,6 +12,7 @@
 #ifndef _SIM5DISKNT_H
 #define _SIM5DISKNT_H
 
+#ifndef CUDA
 
 #define DISK_NT_OPTION_LUMINOSITY     1
 
@@ -29,6 +30,7 @@ DEVICEFUNC double disk_nt_h(double r);
 DEVICEFUNC double disk_nt_dhdr(double r);
 DEVICEFUNC void disk_nt_dump();
 
+#endif //CUDA
 
 #endif
 
