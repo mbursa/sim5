@@ -1,4 +1,4 @@
-%module sim5lib_module
+%module sim5lib
 %{
     #define DEVICEFUNC
 
@@ -44,3 +44,4 @@ def sim5vector(components):
     v[3] = components[3]
     return v
 %}
+

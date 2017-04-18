@@ -1,5 +1,6 @@
 bin/*
 doc/*
+lib/*
 !doc/doxygen.*
 !doc/sim5lib-doc.md
 *~

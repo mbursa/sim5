@@ -27,12 +27,13 @@ lib-clean:
 
 python: lib
 	swig -python -w314 src/sim5lib.swig
-	mv src/sim5lib_module.py bin/sim5lib_module.py
-	sed -i "s/'_sim5lib_module'/'sim5lib'/g" bin/sim5lib_module.py
-	sed -i "s/_sim5lib_module/sim5lib/g" src/sim5lib_wrap.c
+	mv src/sim5lib.py lib/sim5lib.py
+	sed -i "s/'_sim5lib'/'sim5lib'/g" lib/sim5lib.py
+	sed -i "s/_sim5lib/sim5lib/g" src/sim5lib_wrap.c
+	cat py/sim5*.py >> bin/sim5lib.py
 	$(CC) -c src/sim5lib_wrap.c -o src/sim5lib_wrap.o $(CFLAGS) -I/usr/include/python2.7 $(LFLAGS)
-	$(CC) -shared src/sim5lib.o src/sim5lib_wrap.o $(CFLAGS) $(LFLAGS) -o bin/sim5lib.so
-#	rm -f ./*.o src/*_wrap.c
+	$(CC) -shared src/sim5lib.o src/sim5lib_wrap.o $(CFLAGS) $(LFLAGS) -o lib/sim5lib.so
+	rm -f src/*_wrap.*
 
 
 export:
