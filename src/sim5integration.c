@@ -63,7 +63,9 @@ double integrate_trapezoid(double(*f)(double), double a, double b, double acc)
         olds = s;
     }
 
+    #ifndef CUDA
     warning("too many steps in integrate_trapezoid()");
+    #endif
 
     return s;
 }
@@ -97,7 +99,9 @@ double integrate_simpson(double (*f)(double), double a, double b, double acc)
         ost = st;
     }
   
+    #ifndef CUDA
     warning("too many steps in integrate_simpson()");
+    #endif
 
     return s;
 }

@@ -7,6 +7,8 @@
 //    Astronomical Institute of the Czech Academy of Sciences
 //************************************************************************
 
+#ifndef CUDA
+
 
 //! \file sim5interpolation.c
 //! Interpolation routines.
@@ -104,7 +106,11 @@ static void spline(double x[], double y[], int n, double yp1, double ypn, double
 
     //MALLOC(u,float,n-1);
     u = (double*)malloc((n-1)*sizeof(double));
+    //#ifndef CUDA
     if (u == NULL) exit(EXIT_FAILURE);
+    //#else
+    //asm("exit;");    
+    //#endif
     //fprintf(stderr,"ERR %s line %d: Memory allocation failure.\n",  __FILE__, __LINE__);
 
     if(yp1 > 0.99e30)
@@ -219,7 +225,9 @@ void sim5_interp_init(sim5interp* interp, double xa[], double ya[], long N, int 
 //! @result Returns `interp` object to be used in actual interpolation.
 {
     if ((interp_type==INTERP_TYPE_SPLINE) && (interp_options & INTERP_OPT_CAN_EXTRAPOLATE)) {
+        //#ifndef CUDA
         fprintf(stderr, "ERR (sim5_interp_init): spline interpolation cannot be used with extrapolation option\n");
+        //#endif
         return;
     }
 
@@ -234,14 +242,19 @@ void sim5_interp_init(sim5interp* interp, double xa[], double ya[], long N, int 
         long i;
         for (i=0; i<N-1; i++) {
             if (xa[i] >= xa[i+1]) {
+                //#ifndef CUDA
                 fprintf(stderr, "ERR (sim5_interp_init): unordered X grid (x[%ld]=%.4e, x[%ld]=%.4e, N=%ld, opt=%d)\n", i, xa[i], i+1, xa[i+1], N, interp_options);
-                
                 backtrace();
+                //#endif
                 
                 interp->N = 0;
                 interp->X = NULL;
                 interp->Y = NULL;
+                //#ifndef CUDA
                 exit(-1);//return;
+                //#else
+                //asm("exit;");
+                //#endif
             }
         }
     }
@@ -283,8 +296,12 @@ void sim5_interp_init(sim5interp* interp, double xa[], double ya[], long N, int 
             break;
 
         default:
+            //#ifndef CUDA
             fprintf(stderr, "ERR (sim5_interp_init): unimplemented data model (%d)\n", interp->datamodel);
             exit(-1);//return;
+            //#else
+            //asm("exit;");
+            //#endif
     }
 
 }
@@ -303,15 +320,21 @@ void sim5_interp_data_push(sim5interp* interp, double x, double y)
 //! @param y y-value of data point
 {
     if (interp->datamodel != INTERP_DATA_BUILD) {
+        //#ifndef CUDA
         fprintf(stderr, "ERR (sim5_interp_data_push): you can only push in data with INTERP_DATA_BUILD data model\n");
+        //#endif
         return;
     }
 
     long i = interp->N;
 
     if ((i>0) && (interp->X[i-1] >= x)) {
+        //#ifndef CUDA
         fprintf(stderr, "ERR (sim5_interp_data_push): unordered X grid (x[%ld]=%.4e, x[%ld]=%.4e)\n", i-1, interp->X[i-1], i, x);
         exit(-1);//return;
+        //#else
+        //asm("exit;");
+        //#endif
     }
 
     interp->X[i] = x;
@@ -358,7 +381,9 @@ double sim5_interp_eval(sim5interp* interp, double x)
 
 
     if ((!(interp->options & INTERP_OPT_CAN_EXTRAPOLATE)) && ((x < interp->xmin) || (x > interp->xmax))) {
+        //#ifndef CUDA
         fprintf(stderr, "WRN (sim5_interp_eval): unwarranted extrapolation (x=%.4e, xmin=%.4e, xmax=%.4e)\n", x, interp->xmin, interp->xmax);
+        //#endif
     }
 
     if (interp->options & INTERP_OPT_ACCEL) {
@@ -393,7 +418,9 @@ double sim5_interp_eval(sim5interp* interp, double x)
             // equvivalent to: y_lo + (log(x)-log(x_lo)) / (log(x_hi) - log(x_lo)) * (y_hi - y_lo)
 
         default:
+            //#ifndef CUDA
             fprintf(stderr, "ERR (sim5_interp_eval): unimplemented interpolation type (%d)\n", interp->type);
+            //#endif
             return NAN;
     }
 }
@@ -447,7 +474,7 @@ sim5interp* sim5_interp_alloc()
 //!
 //! @result Interpolation object.
 {
-    return calloc(1, sizeof(sim5interp));
+    return (sim5interp*)calloc(1, sizeof(sim5interp));
 }
 
 
@@ -470,7 +497,6 @@ void sim5_interp_free(sim5interp* interp)
 
 //#define SIM5FILEIO_TESTIG
 #ifdef SIM5FILEIO_TESTIG
-
 int main() {
     double X[5] = {1.,2.,3.,4.,5.};
     double Y[5] = {2.,4.,6.,8.,10.};
@@ -483,5 +509,6 @@ int main() {
     sim5_interp_free(&interp);
     return 0;
 }
-
 #endif
+
+#endif //CUDA

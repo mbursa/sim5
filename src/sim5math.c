@@ -64,23 +64,65 @@ int ensure_range(double *val, double min, double max, double acc)
 
 
 
-
 DEVICEFUNC INLINE 
 void sim5seed()
+// see http://stackoverflow.com/questions/11832202/cuda-random-number-generating
+// and http://cs.umw.edu/~finlayson/class/fall16/cpsc425/notes/cuda-random.html
 {
+    #ifndef CUDA
     mt19937_init(time(NULL));
+    #else
+    // nope (seeding is not imaplemented at the moment)
+    #endif
 }
 
 DEVICEFUNC INLINE 
 unsigned long long sim5rand()
 {
+    #ifndef CUDA
     return mt19937_int64();
+    #else
+
+    static long rndseed = 0x4d544750;
+    #if LONG_MAX > (16807*2147483647)
+    int const a    = 16807;      //ie 7**5
+    int const m    = 2147483647; //ie 2**31-1
+	rndseed = ((long)(rndseed * a))%m;
+	return rndseed;
+    #else
+    double const a    = 16807;      //ie 7**5
+    double const m    = 2147483647; //ie 2**31-1
+	double temp = rndseed * a;
+	rndseed = (int) (temp - m * floor ( temp / m ));
+	return rndseed;
+    #endif
+
+    #endif
 }
+
 
 DEVICEFUNC INLINE 
 double sim5urand()
 {
+    #ifndef CUDA
     return mt19937_real1();
+    #else
+
+    static long rndseed = 0x4d544750;
+    #if LONG_MAX > (16807*2147483647)
+    int const a    = 16807;      //ie 7**5
+    int const m    = 2147483647; //ie 2**31-1
+	rndseed = ((long)(rndseed * a))%m;
+	return (double)(rndseed)/(double)(m);
+    #else
+    double const a    = 16807;      //ie 7**5
+    double const m    = 2147483647; //ie 2**31-1
+	double temp = rndseed * a;
+	rndseed = (int) (temp - m * floor ( temp / m ));
+	return (double)(rndseed)/m;
+    #endif
+
+    #endif
 }
 
 

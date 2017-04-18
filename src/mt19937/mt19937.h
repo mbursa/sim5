@@ -5,6 +5,7 @@
 // No changes has been made to the original code except renaming 
 // the routines (adding mt19937 prefix). 
 
+#ifndef __CUDACC__
 
 
 /* 
@@ -89,4 +90,6 @@ double mt19937_real2(void);
 
 /* generates a random number on (0,1)-real-interval */
 double mt19937_real3(void);
+
+#endif //CUDA
 

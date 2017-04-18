@@ -7,6 +7,7 @@
 // specifier to globally declared static variables (requires compiler 
 // to implement C11 standard). 
 
+#ifndef __CUDACC__
 
 
 /* 
@@ -180,4 +181,5 @@ double mt19937_real3(void)
 }
 
 
+#endif //CUDA
 

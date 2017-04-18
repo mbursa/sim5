@@ -14,7 +14,7 @@
 #ifndef _SIM5DISTRIBUTIONS_H
 #define _SIM5DISTRIBUTIONS_H
 
-
+#ifndef CUDA
 
 typedef struct sim5distrib {
     double x_min;
@@ -31,5 +31,6 @@ DEVICEFUNC void distrib_init(sim5distrib* d, double(*pdf)(double), double x_min,
 DEVICEFUNC void distrib_done(sim5distrib* d);
 DEVICEFUNC INLINE double distrib_hit(sim5distrib* d);
 
+#endif //CUDA
 
 #endif

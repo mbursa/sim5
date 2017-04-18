@@ -14,6 +14,7 @@
 #ifndef _SIM5INTERPOLATION_H
 #define _SIM5INTERPOLATION_H
 
+#ifndef CUDA
 
 // interpolation options
 #define INTERP_DATA_REF                 0       // X/Y arrays are referenced from their supplied original arrays
@@ -59,4 +60,7 @@ DEVICEFUNC void sim5_interp_free(sim5interp* interp);
 
 DEVICEFUNC INLINE long sim5_interp_search(const double x_array[], double x, long index_lo, long index_hi);
 
+#endif // CUDA
+
 #endif
+

@@ -60,7 +60,9 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
         // we are not yet ready to handle this case (Dexter&Agol provide a solution)
         // skip it silently
         if (status) *status = 0;
+        #ifndef CUDA
         fprintf(stderr,"q=0\n");
+        #endif
         return FALSE;
     }
 
@@ -693,7 +695,9 @@ int geodesic_priv_R_roots(geodesic *g, int *status)
         // we do not yet know how to handle the case of non-equatorial photons
         // skip it silently
         if (status) *status = 0;
-        fprintf(stderr,"nrr=0\n");
+        #ifndef CUDA
+        //fprintf(stderr,"nrr=0\n");
+        #endif
         return FALSE;
     }
 
@@ -772,9 +776,9 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
     if ((q>0.0) && !ensure_range(&g->m2p, 0.0, 1.0, 1e-5)) {
         #ifndef CUDA
         fprintf(stderr,"m2p<0 (%e/%f/%f)\n", g->m2p,l,q);
+        fprintf(stderr,"T err1\n");
         #endif
         if (status) *status = 0;
-        fprintf(stderr,"T err1\n");
         return FALSE;
     }
 
@@ -791,16 +795,16 @@ int geodesic_priv_T_roots(geodesic *g, int *status)
         *status=0;
         #ifndef CUDA
         fprintf(stderr,"WRN:g->m2>=1.0\n");
-        #endif
         fprintf(stderr,"T err2\n");
+        #endif
         return FALSE;
     }
     if (!ensure_range(&g->m2, 0.0, 1.0, 1e-5)) {
         #ifndef CUDA
-        //fprintf(stderr,"m2<0 (%e)\n", g->m2);
+        fprintf(stderr,"m2<0 (%e)\n", g->m2);
+        fprintf(stderr,"T err3\n");
         #endif
         if (status) *status = 0;
-        fprintf(stderr,"T err3\n");
         return FALSE;
     }
 

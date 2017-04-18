@@ -49,6 +49,7 @@ double blackbody_Iv(double T, double hardf, double cos_mu, double E)
 
 
 
+DEVICEFUNC
 void blackbody(double T, double hardf, double cos_mu, double E[], double Iv[], int N)
 //! Specific radiance of black-body radiation.
 //!

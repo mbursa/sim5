@@ -8,7 +8,7 @@
 //    (C) 2015 Michal Bursa
 //************************************************************************
 
-
+#ifndef CUDA
 
 DEVICEFUNC
 void distrib_init(sim5distrib* d, double(*pdf)(double), double x_min, double x_max, int N)
@@ -94,3 +94,5 @@ double distrib_hit(sim5distrib* d)
 {
     return sim5_interp_eval(&d->icd, sim5urand());
 }
+
+#endif

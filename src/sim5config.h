@@ -19,11 +19,11 @@
 
     #define DEVICEFUNC   __device__
     #define HOSTFUNC     __host__
-    #define INLINE       __inline__
+    #define INLINE
 #else
     #define DEVICEFUNC
     #define HOSTFUNC
-    #define INLINE       inline   // extern in new in GNU99 standard (in GCC 5+)
+    #define INLINE       //inline   // extern in new in GNU99 standard (in GCC 5+)
 #endif
 
 

@@ -10,20 +10,33 @@
 
 #include "sim5lib.h"
 
+#ifndef CUDA
 // external libs
 #include "mt19937/mt19937.c"
+#endif
+
 
 // sim5lib parts
 #include "sim5utils.c"
 #include "sim5math.c"
 #include "sim5integration.c"
+
+#ifndef CUDA
 #include "sim5interpolation.c"
 #include "sim5distributions.c"
+#endif
+
 #include "sim5roots.c"
 #include "sim5elliptic.c"
 #include "sim5polyroots.c"
 #include "sim5raytrace.c"
 #include "sim5kerr.c"
 #include "sim5kerr-geod.c"
+
+#ifndef CUDA
 #include "sim5disk-nt.c"
+#endif
+
 #include "sim5radiation.c"
+
+
