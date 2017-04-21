@@ -416,8 +416,8 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
         break;
     }
 
-    //phi += (sign_dm<0) ? phi_mp : phi_pp-phi_mp;
-    phi += (sign_dm<0) ? phi_mp : -phi_mp;
+    phi += (sign_dm<0) ? phi_mp : phi_pp-phi_mp;
+    //phi += (sign_dm<0) ? phi_mp : -phi_mp; //seems wrong
 
     // change of sign here converts the integration from [r,m] to infinity
     // to integration from infinity to [r,m]
