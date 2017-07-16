@@ -35,8 +35,8 @@ DEVICEFUNC INLINE
 double reduce_angle_pi(double phi)
 // returns angle in the interval [0..pi]
 {
-    while (phi < 0.0)  phi += 2.*M_PI;
-    while (phi > M_PI) phi -= M_PI;
+    while (phi < 0.0)  phi += 2.*PI;
+    while (phi > PI) phi -= PI;
     return phi;
 }
 
@@ -45,8 +45,8 @@ DEVICEFUNC INLINE
 double reduce_angle_2pi(double phi)
 // returns angle in the interval [0..2pi]
 {
-    while (phi >= +M_2PI) phi -= M_2PI;
-    while (phi <     0.0) phi += M_2PI;
+    while (phi >= +PI2) phi -= PI2;
+    while (phi <     0.0) phi += PI2;
     return phi;
 }
 
@@ -372,10 +372,10 @@ sim5complex catan(sim5complex a)
 
     if (re == 0.0) {
         if (I > 1) {
-            z = makeComplex(M_PI_2, im);
+            z = makeComplex(PI_half, im);
         }
         else if (I < -1.0) {
-            z = makeComplex(-M_PI_2, im);
+            z = makeComplex(-PI_half, im);
         }
         else {
             z = makeComplex(0.0, im);

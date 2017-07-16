@@ -21,8 +21,8 @@
 
 // sim5lib parts
 #include "sim5const.h"
-#include "sim5utils.h"
 #include "sim5math.h"
+#include "sim5utils.h"
 #include "sim5integration.h"
 
 #ifndef CUDA

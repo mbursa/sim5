@@ -198,6 +198,13 @@ void array_push_long(void** array_ptr, const long data)
 
 
 inline
+void array_push_float(void** array_ptr, const float data)
+{
+    array_push(array_ptr, &data);
+}
+
+
+inline
 void array_push_double(void** array_ptr, const double data)
 {
     array_push(array_ptr, &data);

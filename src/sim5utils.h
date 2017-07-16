@@ -21,6 +21,7 @@ void array_push(void** array_ptr, const void* data);
 void array_push_int(void** array_ptr, const int data);
 void array_push_long(void** array_ptr, const long data);
 void array_push_double(void** array_ptr, const double data);
+void array_push_float(void** array_ptr, const float data);
 int  array_exists(void* array, const void* data);
 void array_push_if_not_exists(void** array_ptr, const void* data);
 void array_reverse(void* array);

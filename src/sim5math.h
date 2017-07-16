@@ -15,9 +15,17 @@
 //#include "sim5config.h"
 
 
-#define M_2PI     (M_PI*2.0)
-#define M_4PI     (M_PI*4.0)
-#define M_PI_half (M_PI/2.0)
+//#ifdef SIM5_SINGLE_PREC_MATH
+//    #define double   float
+//#else
+//    #define double   double
+//#endif
+
+
+#define PI      3.14159265359
+#define PI2     6.28318530718
+#define PI4     12.5663706144
+#define PI_half 1.57079632679
 
 #define sqr(a)   ((a) * (a))
 #define sqr2(a)  ((a) * (a))
@@ -43,9 +51,11 @@
 #define urand sim5urand()
 
 
+
+
 #ifdef CUDA
-    typedef double2    sim5complex;
-    #define ComplexI   makeComplex(0.0,1.0)
+    typedef double2     sim5complex;
+    #define ComplexI    makeComplex(0.0,1.0)
 #else
     #include <complex.h>
     #undef I
