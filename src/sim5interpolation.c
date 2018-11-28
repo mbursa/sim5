@@ -495,8 +495,8 @@ void sim5_interp_free(sim5interp* interp)
 
 
 
-//#define SIM5FILEIO_TESTIG
-#ifdef SIM5FILEIO_TESTIG
+//#define SIM5FILEIO_TESTING
+#ifdef SIM5FILEIO_TESTING
 int main() {
     double X[5] = {1.,2.,3.,4.,5.};
     double Y[5] = {2.,4.,6.,8.,10.};

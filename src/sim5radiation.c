@@ -93,7 +93,7 @@ double blackbody_photons(double T, double hardf, double cos_mu, double E)
 
 
 DEVICEFUNC
-double blackbody_photons_total(double T, double hardf, double cos_mu)
+double blackbody_photons_total(double T, double hardf)
 //! Number of photons that are emitted by a black-body surface.
 //!
 //! Gives total number of photons \f$\frac{dN}{dt dA d\Omega}\f$ of all energies that are
@@ -108,9 +108,8 @@ double blackbody_photons_total(double T, double hardf, double cos_mu)
 //!
 //! @result number of photons [photons cm^-2 s^-1 srad^-1]
 {
-    const double limbf = (cos_mu>=0.0) ? 0.5+0.75*cos_mu : 1.0;
     // 4.808227612 = 4*Zeta(3)
-    return limbf * 4.808227612 * sqr3(T) * sqr3(boltzmann_k) / sqr3(planck_h) / speed_of_light2 / hardf;
+    return M_PI * 4.808227612 * sqr3(T) * sqr3(boltzmann_k) / sqr3(planck_h) / speed_of_light2 / hardf;
 }
 
 

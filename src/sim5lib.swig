@@ -4,7 +4,7 @@
 
     /* the resulting C file should be built as a python extension */
     //#define SWIG_FILE_WITH_INIT
-    /*  Includes the header in the wrapper code */
+
     #include "sim5lib.h"
 %}
 
@@ -15,6 +15,7 @@
 %pointer_class(int, intp);
 %pointer_class(double, doublep);
 //%pointer_functions(double ,double_ptr);  // this vill allow to access content of general 'double *' variables
+%array_functions(int, int_array);  // will allow to access content of general 'int *' arrays
 %array_functions(double, double_array);  // will allow to access content of general 'double *' arrays
 
 // Some array helpers
@@ -33,8 +34,8 @@
 %include "sim5raytrace.h"
 %include "sim5kerr-geod.h"
 %include "sim5disk-nt.h"
+%include "sim5polarization.h"
 
-// vector() routine has been added to sim5kerr.c
 %pythoncode %{
 def sim5vector(components):
     v  = doubleArray(4)

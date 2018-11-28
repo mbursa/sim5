@@ -20,9 +20,8 @@ DEVICEFUNC int disk_nt_setup(double M, double a, double mdot_or_L, double alpha,
 DEVICEFUNC void disk_nt_finish();
 DEVICEFUNC double disk_nt_r_min();
 DEVICEFUNC double disk_nt_flux(double r);
-DEVICEFUNC double disk_nt_lum();
+DEVICEFUNC double disk_nt_lumi();
 DEVICEFUNC double disk_nt_mdot();
-DEVICEFUNC double disk_nt_temp(double r);
 DEVICEFUNC double disk_nt_sigma(double r);
 DEVICEFUNC double disk_nt_ell(double r);
 DEVICEFUNC double disk_nt_vr(double r);

@@ -41,7 +41,7 @@
 
 
 DEVICEFUNC
-void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], double presision_factor, int options, raytrace_data* rtd)
+void raytrace_prepare(double bh_spin, double x[4], double k[4], double presision_factor, int options, raytrace_data* rtd)
 //! Raytracing with step-wise null-geodesic integration.
 //! Makes one step along the geodesic that is tangent to `k` and updates input vectors with new values.
 //! The integration method follows Dolence+2009 (http://adsabs.harvard.edu/abs/2009ApJS..184..387D).
@@ -64,14 +64,7 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], dou
 {
     // read options
     rtd->opt_gr  = !((options & RTOPT_FLAT) == RTOPT_FLAT);
-    rtd->opt_pol =  ((options & RTOPT_POLARIZATION) == RTOPT_POLARIZATION);
     rtd->step_epsilon = sqrt(presision_factor)/10.;   // note: precision ~ (step_epsilon)^2; step_epsilon=0.1 gives reasonable precision ~1e-3
-
-    if (rtd->opt_pol) {
-        #ifndef CUDA
-        fprintf(stderr,"ERR (raytrace_prepare): the polarization vector transport does not work sufficiently well yet. The photon_polarization_vector() routine should be used instead.\n");
-        #endif
-    }
 
     // evaluate metric and connection 
     sim5metric m;
@@ -85,19 +78,10 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], dou
     if (fabs(kk) > 1e-10) fprintf(stderr,"ERR (kerr_raytrace_prepare): k is not a null vector (k.k=%.3e)\n", kk);
     #endif
 
-    if (rtd->opt_pol) {
-        // check that k.f=0
-        double kf = dotprod(k, f, &m);
-        #ifndef CUDA
-        if (fabs(kf) > 1e-10) fprintf(stderr,"ERR (kerr_raytrace_prepare): k and f are not orthogonal (k.f=%.3e)\n", kf);
-        #endif
-    }
-
     // set motion constants
     rtd->bh_spin = bh_spin;
     rtd->E = k[0]*m.g00 + k[3]*m.g03;
     rtd->Q  = photon_carter_const(k, &m);
-    if (rtd->opt_pol) rtd->WP = photon_wp_const(k, f, &m);
 
     // set runtime varibles    
     rtd->pass = 0;
@@ -107,7 +91,6 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], dou
 
     // evaluate intial derivatives of k and f
     Gamma(G, k, k, rtd->dk);
-    if (rtd->opt_pol) Gamma(G, k, f, rtd->df);
 }
 
 //! \cond SKIP
@@ -119,22 +102,11 @@ inline double k_deriv(int j, double _k[4], double G[4][4][4]) {
     for (a=0;a<4;a++) for (b=a;b<4;b++) _dki -= G[j][a][b]*_k[a]*_k[b];
     return _dki;
 }
-
-DEVICEFUNC
-inline double f_deriv(int j, double _k[4], double _f[4], double G[4][4][4]) {
-    int a,b;
-    double _dfi = 0.0;
-    for (a=0;a<4;a++) for (b=a;b<4;b++) _dfi -= 0.5*G[j][a][b]*(_k[a]*_f[b] + _k[b]*_f[a]);
-    return _dfi;
-}
 #endif
-//! \endcond
-
-
 
 
 DEVICEFUNC
-void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data* rtd)
+void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd)
 //! Raytracing with step-wise null-geodesic integration.
 //! Makes one step along the geodesic that is tangent to `k` and updates input vectors with new values.
 //! The integration method follows Dolence+2009 (http://adsabs.harvard.edu/abs/2009ApJS..184..387D).
@@ -162,15 +134,13 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
     sim5metric m;
     double G[4][4][4];
     double* dk = rtd->dk;
-    double* df = rtd->df;
-    double x_orig[4], k_orig[4], f_orig[4]={0,0,0,0};
-    double xp[4], kp[4], kp_prev[4], fp[4], fp_prev[4];
+    double x_orig[4], k_orig[4];
+    double xp[4], kp[4], kp_prev[4];
     double kk=0.0, kt = rtd->kt;
     float k_frac_error;
 
     vect_copy(x, x_orig);
     vect_copy(k, k_orig);
-    if (rtd->opt_pol) vect_copy(f, f_orig);
 
     #ifndef CUDA    
     // evaluate derivative of momentum from the geodesic equation; 
@@ -184,22 +154,12 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
         for (a=0;a<4;a++) for (b=a;b<4;b++) _dki -= G[j][a][b]*_k[a]*_k[b];
         return _dki;
     }
-
-    // evaluate derivative of polarization vector from the geodesic equation
-    // - same as for the routine above applies here, except the symmetry assumption
-    // - for CUDA it cannot be nested, so it is taked out of raytrace()
-    inline double f_deriv(int j, double _k[4], double _f[4]) {
-        int a,b;
-        double _dfi = 0.0;
-        for (a=0;a<4;a++) for (b=a;b<4;b++) _dfi -= 0.5*G[j][a][b]*(_k[a]*_f[b] + _k[b]*_f[a]);
-        return _dfi;
-    }
     #endif
 
     // limit step into a reasonable iterval
     // smaller step must be used close to black hole (radial term: 0.05*x[1])
     // smaller step must be used close to polar axis (axial term: pow(1-x[2],0.5))
-    //double dl = min(0.05*x[1]*pow(1.-x[2],0.5), *step) * dl_reduction_factor;
+    //double stepsize = min(0.05*x[1]*pow(1.-x[2],0.5), *step);
     //if (dl < 1e-4) dl = 1e-4;
     double stepsize = rtd->step_epsilon/(fabs(dk[0])/(fabs(k[0])+TINY) + fabs(dk[1])/(fabs(k[1])+TINY) + fabs(dk[2])/(fabs(k[2])+TINY) + fabs(dk[3])/(fabs(k[3])+TINY) + TINY);
     double dl = min(*step, stepsize);
@@ -216,14 +176,7 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
     xp[3] = x[3] + k[3]*dl + 0.5*dk[3]*dl*dl;
 
     // this is addition of first two terms of Eq.14d (Dolence+09) 
-    if (rtd->opt_pol) {
-        for (i=0;i<4;i++) {
-            k[i] += 0.5*dk[i]*dl;
-            f[i] += 0.5*df[i]*dl;
-        }
-    } else {
-        for (i=0;i<4;i++) k[i] += 0.5*dk[i]*dl;
-    }; 
+    for (i=0;i<4;i++) k[i] += 0.5*dk[i]*dl;
 
     // update metric and connection
     if (rtd->opt_gr) {
@@ -235,14 +188,7 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
     }; 
 
     // step 2: estimate new value for k and f (Dolence+09, Eq.14b)
-    if (rtd->opt_pol) {
-        for (i=0;i<4;i++) {
-            kp[i] = k[i] + 0.5*dk[i]*dl;
-            fp[i] = f[i] + 0.5*df[i]*dl;
-        }
-    } else {
-        for (i=0;i<4;i++) kp[i] = k[i] + 0.5*dk[i]*dl;
-    }
+    for (i=0;i<4;i++) kp[i] = k[i] + 0.5*dk[i]*dl;
 
 
     // step 3: iteratively improve estimate of momentum based on its derivative
@@ -250,31 +196,15 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
     do {
         k_frac_error = 0.0;
 
-        if (rtd->opt_pol) {
-            vect_copy(kp, kp_prev);
-            vect_copy(fp, fp_prev);
-            for (i=0;i<4;i++) {
-                // Dolence+09, Eq. (14c,d)
-                #ifdef CUDA
-                kp[i] = k[i] + 0.5*k_deriv(i,kp_prev,G)*dl;         
-                fp[i] = f[i] + 0.5*f_deriv(i,kp_prev,fp_prev,G)*dl;
-                #else
-                kp[i] = k[i] + 0.5*k_deriv(i,kp_prev)*dl;         
-                fp[i] = f[i] + 0.5*f_deriv(i,kp_prev,fp_prev)*dl;
-                #endif
-                k_frac_error += frac_error(kp[i],kp_prev[i]);
-            }
-        } else {
-            vect_copy(kp, kp_prev);
-            for (i=0;i<4;i++) {
-                // Dolence+09, Eq. (14c,d)
-                #ifdef CUDA
-                kp[i] = k[i] + 0.5*k_deriv(i,kp_prev,G)*dl;
-                #else
-                kp[i] = k[i] + 0.5*k_deriv(i,kp_prev)*dl;
-                #endif
-                k_frac_error += frac_error(kp[i],kp_prev[i]);
-            }
+        vect_copy(kp, kp_prev);
+        for (i=0;i<4;i++) {
+            // Dolence+09, Eq. (14c,d)
+            #ifdef CUDA
+            kp[i] = k[i] + 0.5*k_deriv(i,kp_prev,G)*dl;
+            #else
+            kp[i] = k[i] + 0.5*k_deriv(i,kp_prev)*dl;
+            #endif
+            k_frac_error += frac_error(kp[i],kp_prev[i]);
         }
 
         k_iter++;
@@ -285,40 +215,24 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
     kt = kp[0]*m.g00 + kp[3]*m.g03;
     kk = fabs(dotprod(kp, kp, &m));
     rtd->error = max(frac_error(kt,rtd->kt), kk);
-	if ((k_frac_error>raytrace_max_error*1e-2) || (rtd->error>raytrace_max_error*1e-2)) {
+    if ((k_frac_error>raytrace_max_error*1e-2) || (rtd->error>raytrace_max_error*1e-2)) {
         vect_copy(x_orig, x);
         vect_copy(k_orig, k);
-        if (rtd->opt_pol) vect_copy(f_orig, f);
-        DEVICEFUNC void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_data* rtd);
-        raytrace_rk4(x, k, f, dl, rtd);
+        DEVICEFUNC void raytrace_rk4(double x[4], double k[4], double dl, raytrace_data* rtd);
+        raytrace_rk4(x, k, dl, rtd);
         *step = dl;
         return;
     }
 
-    // assign x, k, f, and dk, df
-    if (rtd->opt_pol) {
-        for (i=0;i<4;i++) {
-            x[i]  = xp[i];
-            k[i]  = kp[i];
-            f[i]  = fp[i];
-            #ifdef CUDA
-            dk[i] = k_deriv(i,kp,G);
-            df[i] = f_deriv(i,kp,fp,G);
-            #else
-            dk[i] = k_deriv(i,kp);
-            df[i] = f_deriv(i,kp,fp);
-            #endif
-        }
-    } else {
-        for (i=0;i<4;i++) {
-            x[i]  = xp[i];
-            k[i]  = kp[i];
-            #ifdef CUDA
-            dk[i] = k_deriv(i,kp,G);
-            #else
-            dk[i] = k_deriv(i,kp);
-            #endif
-        }
+    // assign x, k, f, and dk
+    for (i=0;i<4;i++) {
+        x[i]  = xp[i];
+        k[i]  = kp[i];
+        #ifdef CUDA
+        dk[i] = k_deriv(i,kp,G);
+        #else
+        dk[i] = k_deriv(i,kp);
+        #endif
     }
 
     // assign motion constant for k in the current step
@@ -332,15 +246,20 @@ void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data
 
 //! \cond SKIP
 DEVICEFUNC
-void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_data* rtd)
+void raytrace_rk4(double x[4], double k[4], double dl, raytrace_data* rtd)
 {
     int i;
     sim5metric m;
     double G[4][4][4];
     double xp[4];
     double k1[4], dk1[4], k2[4], dk2[4], k3[4], dk3[4], k4[4], dk4[4];
-    double f1[4], df1[4], f2[4], df2[4], f3[4], df3[4], f4[4], df4[4];
 	double dl_2 = 0.5 * dl;
+
+    //double x_orig[4];
+    //double k_orig[4];
+    //vect_copy(x, x_orig);
+    //vect_copy(k, k_orig);
+
 
     double kt0 = rtd->kt;
 
@@ -349,77 +268,36 @@ void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_dat
 
 	for (i=0; i<4; i++) xp[i] = x[i];
     rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
-    if (rtd->opt_pol) {
-    	for (i=0; i<4; i++) k1[i] = k[i];
-    	for (i=0; i<4; i++) f1[i] = f[i];
-        Gamma(G, k1, k1, dk1);
-        Gamma(G, k1, f1, df1);
-    } else {
-    	for (i=0; i<4; i++) k1[i] = k[i];
-        Gamma(G, k1, k1, dk1);
-    }
+	for (i=0; i<4; i++) k1[i] = k[i];
+    Gamma(G, k1, k1, dk1);
 
 	for (i=0; i<4; i++) xp[i] = x[i] + k1[i]*dl_2;
     rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
-    if (rtd->opt_pol) {
-    	for (i=0; i<4; i++) k2[i] = k[i] + dk1[i]*dl_2;
-	    for (i=0; i<4; i++) f2[i] = f[i] + df1[i]*dl_2;
-        Gamma(G, k2, k2, dk2);
-        Gamma(G, k2, f2, df2);
-    } else {
-    	for (i=0; i<4; i++) k2[i] = k[i] + dk1[i]*dl_2;
-        Gamma(G, k2, k2, dk2);
-    }
+	for (i=0; i<4; i++) k2[i] = k[i] + dk1[i]*dl_2;
+    Gamma(G, k2, k2, dk2);
 
 	for (i=0; i<4; i++) xp[i] = x[i] + k2[i]*dl_2;
     rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
-    if (rtd->opt_pol) {
-    	for (i=0; i<4; i++) k3[i] = k[i] + dk2[i]*dl_2;
-    	for (i=0; i<4; i++) f3[i] = f[i] + df2[i]*dl_2;
-        Gamma(G, k3, k3, dk3);
-        Gamma(G, k3, f3, df3);
-    } else {
-    	for (i=0; i<4; i++) k3[i] = k[i] + dk2[i]*dl_2;
-        Gamma(G, k3, k3, dk3);
-    }
+	for (i=0; i<4; i++) k3[i] = k[i] + dk2[i]*dl_2;
+    Gamma(G, k3, k3, dk3);
 
 	for (i=0; i<4; i++) xp[i] = x[i] + k3[i]*dl;
     rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
-    if (rtd->opt_pol) {
-    	for (i=0; i<4; i++) k4[i] = k[i] + dk3[i]*dl;
-    	for (i=0; i<4; i++) f4[i] = f[i] + df3[i]*dl;
-        Gamma(G, k4, k4, dk4);
-        Gamma(G, k4, f4, df4);
-    } else {
-    	for (i=0; i<4; i++) k4[i] = k[i] + dk3[i]*dl;
-        Gamma(G, k4, k4, dk4);
-    }
+	for (i=0; i<4; i++) k4[i] = k[i] + dk3[i]*dl;
+    Gamma(G, k4, k4, dk4);
 
     // update values for momentum and polarization vectors
-    if (rtd->opt_pol) {
-    	for (i=0; i<4; i++) {
-	    	x[i] += dl/6. * ( k1[i] + 2.* k2[i] + 2.* k3[i] +  k4[i]);
-	    	k[i] += dl/6. * (dk1[i] + 2.*dk2[i] + 2.*dk3[i] + dk4[i]);
-	    	f[i] += dl/6. * (df1[i] + 2.*df2[i] + 2.*df3[i] + df4[i]);
-	    }
-	} else {
-    	for (i=0; i<4; i++) {
-	    	x[i] += dl/6. * ( k1[i] + 2.* k2[i] + 2.* k3[i] +  k4[i]);
-	    	k[i] += dl/6. * (dk1[i] + 2.*dk2[i] + 2.*dk3[i] + dk4[i]);
-	    }
-	}
+	for (i=0; i<4; i++) {
+    	x[i] += dl/6. * ( k1[i] + 2.* k2[i] + 2.* k3[i] +  k4[i]);
+    	k[i] += dl/6. * (dk1[i] + 2.*dk2[i] + 2.*dk3[i] + dk4[i]);
+    }
 
     // transform theta-component of coordinate vector back to angle cosine
 	x[2] = cos(x[2]);
 
     // update values for momentum and polarization vector derivatives
     rtd->opt_gr ? kerr_connection(rtd->bh_spin, x[1], x[2], G) : flat_connection(x[1], x[2], G);
-    if (rtd->opt_pol) {
-        Gamma(G, k, k, rtd->dk);
-        Gamma(G, k, f, rtd->df);
-    } else {
-        Gamma(G, k, k, rtd->dk);
-    }
+    Gamma(G, k, k, rtd->dk);
 
 
     kerr_metric(rtd->bh_spin, x[1], x[2], &m);
@@ -432,9 +310,9 @@ void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_dat
 	    if (dl>1e-8) {
             vect_copy(x_orig, x);
             vect_copy(k_orig, k);
-            if (rtd->opt_pol) vect_copy(f_orig, f);
-            //rtd->refines++;
-	        //for (i=0; i<10; i++) raytrace_rk4(x, k, f, dl/10., rtd);
+            //if (rtd->opt_pol) vect_copy(f_orig, f);
+            rtd->refines++;
+	        for (i=0; i<10; i++) raytrace_rk4(x, k, f, dl/10., rtd);
 	    } else {
 	    fprintf(stderr,"WRN: RK4 step too small rtd->error=%.3e (%d/%d) dl=%.2e ke=%.2e kp[1]=%.5e kp[2]=%.5e\n", rtd->error, rtd->pass, rtd->refines, dl, 0.0, k[1], k[2]);
 	    }
@@ -445,7 +323,7 @@ void raytrace_rk4(double x[4], double k[4], double f[4], double dl, raytrace_dat
 
 
 DEVICEFUNC
-double raytrace_error(double x[4], double k[4], double f[4], raytrace_data* rtd)
+double raytrace_error(double x[4], double k[4], raytrace_data* rtd)
 //! Raytracing error.
 //! Gives relative error in raytracing in terms of relative difference of Carter's constant. 
 //! Useful for checking precission of integration.

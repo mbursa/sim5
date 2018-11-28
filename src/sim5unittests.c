@@ -259,7 +259,7 @@ void test_ntdisk()
     double mdot  = 1.0;
     double alpha = 0.1;
     disk_nt_setup(mass, spin, mdot, alpha, 0);
-    disk_nt_lum();   
+    disk_nt_lumi();
     printf("tested.\n");
 
 }

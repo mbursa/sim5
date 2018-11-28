@@ -291,6 +291,7 @@ void sort_roots(int *s, sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5c
   rr1[2] = *z3;
   rr1[3] = *z4;
 
+  // real number first
   for (i=0; i<N; i++) {
       if (cimag(rr1[i])==0.) {
           rr2[*s] = rr1[i];
@@ -298,6 +299,7 @@ void sort_roots(int *s, sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5c
       }
   }
 
+  // complex numbers last
   k=*s;
   for (i=0; i<N; i++) {
       if (cimag(rr1[i])!=0.) {

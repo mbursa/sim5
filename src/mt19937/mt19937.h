@@ -1,12 +1,17 @@
-// SIM5: Mersenne Twister pseudorandom number generator
-//
-// NOTE: This unit redistributes code for 64bit Mersenne Twister 
-// pseudorandom number generator.by Nishimura and Matsumoto.
-// No changes has been made to the original code except renaming 
-// the routines (adding mt19937 prefix). 
+/* -------------------------------------------------------------- */
+
+/*
+Mersenne Twister pseudorandom number generator
+--
+NOTE: This unit redistributes code for 64bit Mersenne Twister
+pseudorandom number generator.by Nishimura and Matsumoto
+No changes has been made to the original code except renaming
+the routines (adding mt19937 prefix) and introducing thread_local
+specifier to globally declared static variables (requires compiler
+to implement C11 standard)
+*/
 
 #ifndef __CUDACC__
-
 
 /* 
    The original copyright notice:
@@ -92,4 +97,6 @@ double mt19937_real2(void);
 double mt19937_real3(void);
 
 #endif //CUDA
+
+/* -------------------------------------------------------------- */
 

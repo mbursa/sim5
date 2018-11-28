@@ -13,6 +13,9 @@
 #define _SIM5CONFIG_H
 
 
+// uncomment to suppress assertions
+//#define NDEBUG
+
 
 #ifdef __CUDACC__
     #define CUDA

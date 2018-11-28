@@ -217,7 +217,7 @@ double rj(double x, double y, double z, double p) {
 DEVICEFUNC INLINE
 double elliptic_k(double m)
 {
-  if (m==1.0) m = 0.99999999;
+  if (m==1.0) m = 1.0-1e-8;
   #ifndef CUDA
   if (m>1.0) error("Error in routine elliptic_k(m): m >= 1.0 (%e)", m);
   #endif
@@ -478,64 +478,77 @@ double elliptic_pi_sin(double sin_phi, double n, double m)
 // sn^(-1). Note emmc=m = k^2. [This subroutine has been tested with Mathematica.]
 // Applicable only if 0 <= emmc <1 and -1 < y <1.
 DEVICEFUNC INLINE
-double jacobi_isn(double y, double emmc)
+double jacobi_isn(double z, double m)
 {
-    return y*rf(1.0-y*y,1.0-emmc*y*y,1.0);
+    if (fabs(m-0.0)<1e-8) return asin(z);                       // BF 132.02
+    if (fabs(m-1.0)<1e-8) return log(sqrt((1.+z)/(1.-z)));      // BF 132.01
+    return z*rf(1.0-z*z,1.0-m*z*z,1.0);
 }
 
 
-DEVICEFUNC INLINE
-double jacobi_icn1(double z, double m)
-{
-    if (fabs(z-1.0)<1e-8) return 0.0;
-    if (fabs(m-0.0)<1e-8) return acos(z);
-    #ifndef CUDA
-    if (fabs(z)>1.0) error("jacobi_icn1: z>1 (%.10e)", z);
-    if (m>=1.0) error("jacobi_icn: x<0 and m>=1.0");
-    #endif
-    double z2 = z*z;
-    return sqrt(1-z2) * rf(z2, 1.0 - m*(1.-z2), 1.0);
-}
-
-
-// jacobi_icn(y,emmc) = cn^(-1) (y, emmc), the inverse Jacobian elliptic function
+// jacobi_icn(z,emmc) = cn^{-1}(z, m), the inverse Jacobian elliptic function
 // cn^(-1). Note emmc=m = k^2. [This subroutine has been tested with Mathematica.]
 // Applicable only if 0 <= m <1 and -1 <= z <= 1.
 DEVICEFUNC INLINE
 double jacobi_icn(double z, double m)
 {
-    if (z==0.0) {
-        return elliptic_k(m);
-    } else
-    if (z>0.0) {
-        return jacobi_icn1(z,m);
-    } else {
-        return 2.*elliptic_k(m)-jacobi_icn1(-z,m);
-    }
+    if ((z>+1.0) && (z<+1.0+1e-8)) z = +1.0;
+    if ((z<-1.0) && (z>-1.0-1e-8)) z = -1.0;
+    if ((m>+1.0) && (m<+1.0+1e-8)) m =  1.0;
+    if ((m< 0.0) && (m> 0.0-1e-8)) m =  0.0;
+
+    if (z==0.0) return elliptic_k(m);
+    if (z==1.0) return 0.0;
+    if (m==0.0) return acos(z);                     // BF 132.02
+    if (m==1.0) return log((1.+sqrt(1.-z))/z);      // BF 132.01
+
+    #ifndef CUDA
+    if (fabs(z)>1.0) error("jacobi_icn: u>1 (%.10e)", z);
+    if (m>1.0) error("jacobi_cn: m>1.0 (%.10e)", m);
+    #endif
+
+    double icn1 = sqrt(1.-z*z) * rf(z*z, 1.0 - m*(1.-z*z), 1.0);
+
+    // formula for z<0: http://functions.wolfram.com/EllipticFunctions/InverseJacobiCN/introductions/InverseJacobiPQs/05/
+    return (z>0.0) ? icn1 : 2./sqrt(1.-m)*elliptic_f_sin(-z, m/(m-1.))+icn1; 
 }
 
 
-// sncndn(uu,emmc,sn,cn,dn) returns the Jacobian elliptic functions sn(uu,1-emmc),
-// cn(uu,1-emmc), and dn(uu,1-emmc). See "Numerical Recipes in C" by W. H. Press
-// et al. (Chapter 6).
+// jacobi_itn(z,m) = tn^{-1}(z, m), the inverse Jacobian elliptic function tn()
+// BF 131.00
+// Note m=k^2 in BF notation.
+// tn^{-1}(z,m) = sn^{-1}(sqrt[z^2/(1+z^2)], m)
+// Applicable only if 0 <= m <1 and -1 <= u <= 1.
+DEVICEFUNC INLINE
+double jacobi_itn(double z, double m)
+{
+    if (m==0.0) return atan(z);              // BF 132.02
+    if (m==1.0) return log(z+sqrt(1.+z*z));  // BF 132.01
+    return jacobi_isn(sqrt(z*z/(1.+z*z)), m);
+}
+
+
+// sncndn(uu,m,sn,cn,dn) returns the Jacobian elliptic functions sn(u,m), cn(u,m), dn(u,m).
+//See "Numerical Recipes in C" by W. H. Press et al. (Chapter 6).
+// note that the numerical recipes function is sncndn(u,1-m)
+
 DEVICEFUNC
-void sncndn(double uu, double emmc, double *sn, double *cn, double *dn)
+void jacobi_sncndn(double u, double m, double *sn, double *cn, double *dn)
 {
     #ifndef CUDA
-	if (emmc>1.0) error("Error in routine sncndn: m>1.0");
-	if (uu>2.*elliptic_k(emmc)) error("sncndn: invalid input (u>2K(m))");
+	if (m>1.0) error("Error in routine sncndn: m1>1.0");
+	if (u>2.*elliptic_k(m)) error("sncndn: invalid input (u>2K(m))");
     #endif
-	if (emmc==1.0) emmc = 0.99999999;
+	if (m==1.0) m = 0.999999999;
 
 	const double CA=1.0e-8;
 	int bo;
 	int i,ii,l;
-	double a,b,c,d,emc,u;
+	double a,b,c,d,emc;
 	double em[13],en[13];
 
     d=1.0;
-	emc=1.0-emmc;
-	u=uu;
+	emc=1.0-m; // the algorithm is for modulus (1-m)
 	if (emc != 0.0) {
 		bo=(emc < 0.0);
 		if (bo) {
@@ -584,27 +597,25 @@ void sncndn(double uu, double emmc, double *sn, double *cn, double *dn)
 	}
 }
 
-// jacobi_sn(uu,emmc) = sn(uu,emmc), the Jacobian elliptic function sn. Note, here
-// emmc= m = k^2, k is used in P. F. Byrd & M. D. Friedman, Handbook of Elliptic
+// jacobi_sn(u,m) = sn(u,m), the Jacobian elliptic function sn. Note, here
+// m = k^2, k is used in P. F. Byrd & M. D. Friedman, Handbook of Elliptic
 // Integrals for Engineers and Physicists. The subroutine has been tested with
 // Mathematica 4.2.
 DEVICEFUNC INLINE
-double jacobi_sn(double uu, double emmc)
+double jacobi_sn(double u, double m)
 {
   double snx, cnx, dnx;
-
-  sncndn(uu,emmc,&snx,&cnx,&dnx);
+  jacobi_sncndn(u,m,&snx,&cnx,&dnx);
   return snx;
 }
 
-// jacobi_cn(uu,emmc) = cn(uu,emmc), the Jacobian elliptic function cn. Note, here
-// emmc= m = k^2. The subroutine has been tested with Mathematica 4.2.
+// jacobi_cn(u,m) = cn(u,m), the Jacobian elliptic function cn. Note, here
+// m = k^2. The subroutine has been tested with Mathematica 4.2.
 DEVICEFUNC INLINE
-double jacobi_cn(double uu, double emmc)
+double jacobi_cn(double u, double m)
 {
   double snx, cnx, dnx;
-
-  sncndn(uu,emmc,&snx,&cnx,&dnx);
+  jacobi_sncndn(u,m,&snx,&cnx,&dnx);
   return cnx;
 }
 
@@ -614,7 +625,7 @@ DEVICEFUNC INLINE
 double jacobi_dn(double u, double m)
 {
   double sn, cn, dn;
-  sncndn(u,m,&sn,&cn,&dn);
+  jacobi_sncndn(u,m,&sn,&cn,&dn);
   return dn;
 }
 
@@ -637,7 +648,7 @@ double integral_C1(double u, double m)
 // Eq. 312.01 (Byrd & Friedman)
 {
 	double sn, cn, dn;
-	sncndn(u,m,&sn,&cn,&dn);
+	jacobi_sncndn(u,m,&sn,&cn,&dn);
 	return acos(dn)/sqrt(m);
 }
 
@@ -648,7 +659,7 @@ double integral_C2(double u, double m)
 // Eq. 312.02 (Byrd & Friedman)
 {
 	double sn, cn, dn;
-	sncndn(u,m,&sn,&cn,&dn);
+	jacobi_sncndn(u,m,&sn,&cn,&dn);
 	return 1./m*(elliptic_e_cos(cn,m) - (1.-m)*u);
 }
 
@@ -674,7 +685,7 @@ double integral_Z1(double a, double b, double u, double m)
 	if (u>2.*elliptic_k(m)) error("integral_Z1: invalid input (u>2K(m))");
     #endif
 	double sn, cn, dn;
-	sncndn(u, m, &sn, &cn, &dn);
+	jacobi_sncndn(u, m, &sn, &cn, &dn);
 	return 1./a*((a-b)*elliptic_pi_cos(cn,a,m) + b*u);
 }
 
@@ -691,7 +702,7 @@ double integral_Z2(double a, double b, double u, double m)
 	if (u>2.*elliptic_k(m)) error("integral_Z2: invalid input (u>2K(m))");
     #endif
 	double sn, cn, dn;
-	sncndn(u, m, &sn, &cn, &dn);
+	jacobi_sncndn(u, m, &sn, &cn, &dn);
 	//fprintf(stderr,"cn=%e  a=%e  m=%e\n", cn,a,m);
 	double V1 = elliptic_pi_cos(cn,a,m);
 	double V2 = 0.5/((a-1.)*(m-a)) * (
@@ -729,7 +740,7 @@ double integral_Rm2(double a, double u, double m)
     #endif
     double a2 = sqr(a);
 	double sn, cn, dn;
-	sncndn(u, m, &sn, &cn, &dn);
+	jacobi_sncndn(u, m, &sn, &cn, &dn);
 	return 1/m*( (m-a2*(1.-m))*u + a2*elliptic_e_cos(cn,m) + 2*a*sqrt(m)*acos(dn) );
 }
 
@@ -757,7 +768,7 @@ double integral_R1(double a, double u, double m)
 	double a2 = sqr(a);
 	double n = a2/(a2-1.);
 	double sn, cn, dn;
-	sncndn(u, m, &sn, &cn, &dn);
+	jacobi_sncndn(u, m, &sn, &cn, &dn);
 	double mma = (m + (1.-m)*a2) / (1.-a2);
 	sim5complex f1    = (fabs(mma)>1e-5) ? csqrt(makeComplex(1./mma,0.0))*catan(csqrt(makeComplex(mma,0.0))*sn/dn) : makeComplex(sn/dn,0.0);
 	sim5complex ellpi;
@@ -795,7 +806,7 @@ double integral_R2(double a, double u, double m)
     double a2  = sqr(a);
 	double mma = (m + (1.-m)*a2);
 	double sn, cn, dn;
-	sncndn(u, m, &sn, &cn, &dn);
+	jacobi_sncndn(u, m, &sn, &cn, &dn);
 
 	return 1/(a2-1.)/mma * (
 	    (a2*(2.*m-1.)-2.*m)*integral_R1(a,u,m) +
@@ -1038,7 +1049,7 @@ DEVICEFUNC
 double integral_R_rp_cc2(double a, double b, sim5complex c, double p, double X1, double X2)
 // int_X1^X2 1/[(x-p)*sqrt((x-a)(x-b)(x-c)(x-d))]
 // X1 > a > b; X1 > p; c = u + i*v;  d = c*
-// Eq. 260.04 (Byrd & Friedman)
+// Eq. 260.04(Byrd & Friedman)
 {
     #ifndef CUDA
     if (X1<a) error("integral_R_rp_cc2: X1<a (X1=%e, a=%e)", X1, a);

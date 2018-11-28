@@ -39,13 +39,13 @@ typedef struct raytrace_data {
 
 
 DEVICEFUNC
-void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], double presision_factor, int options, raytrace_data* rtd);
+void raytrace_prepare(double bh_spin, double x[4], double k[4], double presision_factor, int options, raytrace_data* rtd);
 
 DEVICEFUNC
-void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data* rtd);
+void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd);
 
 DEVICEFUNC
-double raytrace_error(double x[4], double k[4], double f[4], raytrace_data* rtd);
+double raytrace_error(double x[4], double k[4], raytrace_data* rtd);
 
 
 #endif

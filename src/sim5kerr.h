@@ -1,13 +1,10 @@
 //************************************************************************
 //    SIM5 library
-//    sim5kerr.h - basic properties of Kerr spacetime
+//    sim5kerr.h - basic routines related to Kerr metric
 //------------------------------------------------------------------------
-//    Author:
-//    Michal Bursa (bursa@astro.cas.cz)
-//    Astronomical Institute
-//    Bocni II 1401/1, 141-00 Praha 4, Czech Republic
+//    Author: Michal Bursa (bursa@astro.cas.cz)
+//    MIT Licence
 //************************************************************************
-
 
 
 struct sim5metric {
@@ -50,7 +47,7 @@ DEVICEFUNC INLINE
 void Gamma(double G[4][4][4], double U[4], double V[4], double result[4]);
 
 DEVICEFUNC INLINE
-void vector(double x[4], double x0, double x1, double x2, double x3);
+void vector_set(double x[4], double x0, double x1, double x2, double x3);
 
 DEVICEFUNC INLINE
 void vector_copy(double src[4], double dst[4]);
@@ -75,6 +72,9 @@ void vector_multiply(double V[4], double factor);
 
 DEVICEFUNC INLINE
 double dotprod(double V1[4], double V2[4], sim5metric* m);
+
+DEVICEFUNC
+void tetrad_general(sim5metric *m, double U[], sim5tetrad *t);
 
 DEVICEFUNC
 void tetrad_zamo(sim5metric *m, sim5tetrad *t);
@@ -134,7 +134,7 @@ DEVICEFUNC INLINE
 double gfactorK(double r, double a, double l);
 
 DEVICEFUNC
-void photon_momentum(double a, double r, double m, double l, double q2, double r_sign, double m_sign, double k[4]);
+void photon_momentum(double a, double r, double m, double l, double q, double r_sign, double m_sign, double k[4]);
 
 DEVICEFUNC
 void photon_motion_constants(double a, double r, double m, double k[4], double* L, double* Q);
@@ -142,19 +142,8 @@ void photon_motion_constants(double a, double r, double m, double k[4], double* 
 DEVICEFUNC
 double photon_carter_const(double k[4], sim5metric *metric);
 
-DEVICEFUNC
-sim5complex photon_wp_const(double k[4], double f[4], sim5metric *metric);
-
-DEVICEFUNC
-void polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4]);
-
-DEVICEFUNC
-double polarization_angle_infty(double a, double inc, double alpha, double beta, sim5complex kappa);
-
-
 DEVICEFUNC INLINE
 void fourvelocity_zamo(sim5metric *m, double U[4]);
-
 
 DEVICEFUNC INLINE
 void fourvelocity_azimuthal(double Omega, sim5metric *m, double U[4]);
@@ -164,5 +153,8 @@ void fourvelocity_radial(double vr, sim5metric *m, double U[4]);
 
 DEVICEFUNC INLINE
 double fourvelocity_norm(double U1, double U2, double U3, sim5metric *m);
+
+DEVICEFUNC 
+void fourvelocity(double U1, double U2, double U3, sim5metric *m, double U[]);
 
 

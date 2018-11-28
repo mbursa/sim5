@@ -18,17 +18,18 @@ typedef struct stokes_params {
   double q;
   double u;
   double v;
+  double tau;         // total optical depth along the ray (optional use)
 } stokes_params;
 
 
-static const stokes_params stokes_null = {0.0, 0.0, 0.0, 0.0};
+static const stokes_params stokes_null = {0.0, 0.0, 0.0, 0.0, 0.0};
 
 
 
 DEVICEFUNC double blackbody_Iv(double T, double hardf, double cos_mu, double E);
 DEVICEFUNC void blackbody(double T, double hardf, double cos_mu, double E[], double Iv[], int en_bins);
 DEVICEFUNC INLINE double blackbody_photons(double T, double hardf, double cos_mu, double E);
-DEVICEFUNC double blackbody_photons_total(double T, double hardf, double cos_mu);
+DEVICEFUNC double blackbody_photons_total(double T, double hardf);
 DEVICEFUNC double blackbody_photon_energy_random(double T);
 
 

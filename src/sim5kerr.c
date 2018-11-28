@@ -1,28 +1,17 @@
 //************************************************************************
 //    SIM5 library
-//    sim5kerr.c - basic properties of Kerr spacetime
+//    sim5kerr.c - basic routines related to Kerr metric
 //------------------------------------------------------------------------
-//    Author:
-//    Michal Bursa (bursa@astro.cas.cz)
-//    Astronomical Institute of the Czech Academy of Sciences
-//    e-mail : bursa@astro.cas.cz
+//    Author: Michal Bursa (bursa@astro.cas.cz)
+//    MIT Licence
 //************************************************************************
+
 
 //! \file sim5kerr.c
 //! Basic spacetime routines
 //! 
 //! Provides basic routines for doing physics in Kerr and Minkowski spacetimes  (metric, connection, tetrads, 
 //! vector algebra, orbital motion, photon propagation, etc).
-
-/*
-#include "sim5config.h"
-#ifndef CUDA
-#include <stdio.h>
-#include <math.h>
-#include "sim5math.h"
-#include "sim5kerr.h"
-#endif
-*/
 
 //static long prof_N = 0;
 //static double prof_t = 0.0;
@@ -291,7 +280,7 @@ void Gamma(double G[4][4][4], double U[4], double V[4], double result[4])
 
 
 DEVICEFUNC INLINE
-void vector(double x[4], double x0, double x1, double x2, double x3)
+void vector_set(double x[4], double x0, double x1, double x2, double x3)
 //! Make a 4-vector.
 //! Returns a 4-vector that has given components (contravarient form \f$X^\mu\f$).
 //!
@@ -472,6 +461,54 @@ double dotprod(double V1[4], double V2[4], sim5metric* m)
                V1[3]*V2[3]*m->g33 + V1[0]*V2[3]*m->g03 + V1[3]*V2[0]*m->g03;
     else
         return -V1[0]*V2[0] + V1[1]*V2[1] + V1[2]*V2[2] + V1[3]*V2[3];
+}
+
+
+
+DEVICEFUNC
+void tetrad_general(sim5metric *m, double U[], sim5tetrad *t)
+//! Tetrad of an observer that is moving with a general 4-velocity U.
+//! Note: the orientation of theta-vector points in opposite direction than d/d(theta),
+//! i.e. at the equatorial plane the theta-vector points in upward direction.
+//! (based on Kulkarni+2011, Dexter2016 eq.36-43)
+//!
+//! @param m metric
+//! @param U observer 4-velocity
+//! @param t tetrad
+//!
+//! @result Returns tetrad vectors in `t`.
+{
+    // shortcuts
+    double u[4];
+    double D = sqr(m->r) - 2*(m->r) + sqr(m->a);
+    vector_covariant(U, u, m);  // U=U^\mu, u = U_\mu
+
+    // norms
+    double N1 = sqrt( -m->g11*(u[0]*U[0]+u[3]*U[3])*(1.+u[2]*U[2]) );
+    double N2 = sqrt( +m->g22*(1.+u[2]*U[2]) );
+    double N3 = sqrt( -(u[0]*U[0]+u[3]*U[3])*D*(1.-sqr(m->m)) );
+    
+    t->e[0][0] = U[0];
+    t->e[0][1] = U[1];
+    t->e[0][2] = U[2];
+    t->e[0][3] = U[3];
+
+    t->e[1][0] = u[1]*U[0] / N1;
+    t->e[1][1] = -(u[0]*U[0]+u[3]*U[3]) / N1;
+    t->e[1][2] = 0.0;
+    t->e[1][3] = u[1]*U[3] / N1;
+
+    t->e[2][0] = u[2]*U[0] / N2;
+    t->e[2][1] = u[2]*U[0] / N1;
+    t->e[2][2] = (1.+u[2]*U[2]) / N2;
+    t->e[2][3] = u[2]*U[3] / N2;
+
+    t->e[3][0] = -u[0] / N3;
+    t->e[3][1] = 0.0;
+    t->e[3][2] = 0.0;
+    t->e[3][3] = +u[3] / N3;
+
+    t->metric = *m;
 }
 
 
@@ -950,7 +987,7 @@ double gfactorK(double r, double a, double l)
 
 
 DEVICEFUNC
-void photon_momentum(double a, double r, double m, double l, double q2, double r_sign, double m_sign, double k[4])
+void photon_momentum(double a, double r, double m, double l, double q, double r_sign, double m_sign, double k[4])
 //! Photon 4-momentum vector .
 //! Returns photon 4-momentum vector k^\mu such that k*k=0 (null vector).
 //! The orientation of the resulting vector `k` is given by the signs of `r_sign` and `m_sign` parameters.
@@ -960,7 +997,7 @@ void photon_momentum(double a, double r, double m, double l, double q2, double r
 //! @param r radial coordinate [rg]
 //! @param m poloidal coordinate [cos(theta)]
 //! @param l photon motion constant lambda
-//! @param q2 photon motion constant Q^2 (Carter's constant)
+//! @param q photon motion constant Q (Carter's constant)
 //! @param r_sign sign of k[1] component of resulting momentum vector 
 //! @param m_sign sign of k[2] component of resulting momentum vector 
 //! @param k resulting momentum vector (output) 
@@ -975,15 +1012,19 @@ void photon_momentum(double a, double r, double m, double l, double q2, double r
     double D = r2 - 2.*r + a2;
 
     // after Li+05
-    double R = sqr(r2+a2-a*l) - D*( sqr(l-a) + q2 );       // dr/dl; eq.A2 (with q2 = Q)
-    double M = q2 - l2*m2/(1.-m2) + a2*m2;                 // dtheta/dl; eq.A3
+    double R = sqr(r2+a2-a*l) - D*( sqr(l-a) + q );        // dr/dl; eq.A2
+    double M = q - l2*m2/(1.-m2) + a2*m2;                  // dtheta/dl; eq.A3
 
     if ((M<0.0) && (-M<1e-8)) M = 0.0;
     if ((R<0.0) && (-R<1e-8)) R = 0.0;
 
     #ifndef CUDA
-    if (R<0.0) warning("ERR (photon_momentum): R<0 (%.10e)\n", R);
-    if (M<0.0) warning("ERR (photon_momentum): M<0 (%.10e)\n", M);
+    if (R<0.0) error("(photon_momentum): R<0 (R=%.10e)", R);
+    if (M<0.0) {
+        error("(photon_momentum): M<0 (M=%.10e, l=%.4e  q=%.4e)", M, l, q);
+        k[0]=k[1]=k[2]=k[3]=NAN;
+        return;
+    }
     #endif
 
     k[0] = +1/S * ( -a*(a*(1.-m2)-l) + (r2+a2)/D*(r2+a2-a*l) );
@@ -1037,7 +1078,7 @@ void photon_motion_constants(double a, double r, double m, double k[4], double* 
     *L = l =(-a*a2 + sqr(a2)*nf + nf*sqr(r2) + a*(D-r2) + a2*nf*(2.*r2-D*s2))*s2 /
         (D - a*s2*(a-a2*nf + nf*(D-r2)));
 
-    // Mathematica's solution of "q2" for nh==sqr(k[2])/sqr(k[0])
+    // Mathematica's solution of "q" for nh==sqr(k[2])/sqr(k[0])
     *Q = pow(a*(l-a*s2) + ((a2+r2)*(a2-a*l+r2))/D, 2.0) *
         (nh - (sqr(D*m)*(sqr(l)-a2*s2))/(-s2*pow(sqr(a2)-a*a2*l+sqr(r2)+a*l*(D-r2)+a2*(2.*r2-D*s2),2.0)));
 
@@ -1065,164 +1106,6 @@ double photon_carter_const(double k[4], sim5metric *metric)
     return sqr(kh) + sqr(kf)*m2/(1.-m2) - sqr(metric->a)*sqr(kt)*m2;
 }
 
-
-
-DEVICEFUNC
-sim5complex photon_wp_const(double k[4], double f[4], sim5metric *metric)
-//! Walker-Penrose constant of null geodesic.
-//! Calculates components of Walker-Penrose (Walker&Penrose 1970) constant following 
-//! Connors, Piran, Stark (1980): 
-//! kappa_wp = kappa1 + I*kappa2 = (A1 - I*A2)*(r - I*a*cos(theta)) => 
-//! kappa1 = +r*A1 - a*cos(theta)*A2; kappa2 = -r*A2 - a*cos(theta)*A1
-//! returns kappa_wp = kappa1 + I*kappa2
-//! Note the definition of kappa1 & kappa2, which is opposite to CPS(1980).
-//!
-//! @param k photon 4-momentum vector (satisfies k.k=0)
-//! @param f photon polarization vector (satisfies f.k=0)
-//! @param m metric
-//!
-//! @result Complex Walker-Penrose constant.
-{
-    double a = metric->a;
-    double r = metric->r;
-    double m = metric->m;
-    double s = sqrt(1.0-m*m);
-
-    // evaluate Walker-Penrose constant components
-    double A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
-    double A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
-    double wp1 = +r*A1 - a*m*A2;
-    double wp2 = -r*A2 - a*m*A1;
-
-    return wp1 + ComplexI*wp2;
-}
-
-
-DEVICEFUNC
-void polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4])
-//! Photon polarization vector.
-//! The returned polarization vector satisfies f.k=0 and f.f=0. Since f can be freely shifted 
-//! by a multiple of k (f' = f + \alpha*k), it has a freedom in one compoment and it can always 
-//! be set in such a way that its time-component is zero (f[0]=0). This routine returns f in such a form.
-//!
-//! @param k photon 4-momentum vector
-//! @param wp complex Walker-Penrose constant
-//! @param m metric
-//! @param f photon polarization vector (output)
-//!
-//! @result Photon polarization vector `f`.
-{
-    double a = metric->a;
-    double m = metric->m;
-    double r = metric->r;
-    double s = sqrt(1.0-m*m);
-    double ra2 = r*r + a*a;
-    double r2 = r*r;
-    double a2 = a*a;
-    double s2 = 1.0-m*m;
-
-    // assert that theta>0.0
-    if (s < 1e-12) {
-        s  = 1e-12;
-        s2 = 1e-24;
-        m  = 1.0-0.5*s;
-    }
-
-    // obtain A1, A2 from the definition of Walker-Penrose constant
-    // see photon_wp_const() function
-    double A1 = (+r*creal(wp) - a*m*cimag(wp))/(r*r + a*a*m*m);
-    double A2 = (-r*cimag(wp) - a*m*creal(wp))/(r*r + a*a*m*m);
-
-    // f can be freely shifted by a multiple of k (f' = f + \alpha*k), therefore
-    // it has a freedom in one compoment and we can always set f in such a way
-    // that its time-component will be zero (f[0]=0)
-    // then we can solve this set of equations
-    //   A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
-    //   A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
-    // along with the orthogonality condition
-    //   k.f = 0
-    // and we will obtain (Maple was used for that) the following for components of f
-    // note: using k.f=0 gives much simpler result than using f.f=1 for the third equation instead
-    f[0] = 0.0;
-    f[3] = (
-              + metric->g11*A1*k[1]*(s*r2*k[3] + s*a2*k[3] - s*a*k[0])
-              + metric->g22*A2*k[2]*(k[0] - a*s2*k[3])
-           ) / (
-             + sqr(k[0])*metric->g33*(s*k[3]*a)
-             + sqr(k[0])*metric->g03*(s*k[0]*a - s*r2*k[3] - s*a2*k[3] - a2*s*s2*k[3])
-             + sqr(k[1])*metric->g11*a*s*s2*(+ r2*k[3] + a2*k[3] - a*k[0])
-             + sqr(k[2])*metric->g22*(a2*a*s*s2*k[3] + r2*a*s*s2*k[3] - s*r2*k[0] - s*a2*k[0])
-             + sqr(k[3])*metric->g33*s*(k[3]*a*s2*r2 + k[3]*a2*a*s2 - k[0]*r2 - k[0]*a2 - a2*s2*k[0])
-             + sqr(k[3])*metric->g03*a*s*s2*(r2*k[0] + a2*k[0])
-           );
-    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]);
-    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]);
-
-    vector_norm_to(f, 1.0, metric);
-
-    /*
-    // f can be freely shifted by a multiple of k (f' = f + \alpha*k), therefore
-    // it has a freedom in one compoment and we can always set f in such a way
-    // that its time-component will be zero (f[0]=0)
-    // then we can solve this set of equations
-    //   A1 = (k[0]*f[1]-k[1]*f[0]) + a*s*s*(k[1]*f[3]-k[3]*f[1]);
-    //   A2 = s*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
-    // along with the normalization condition
-    //   f.f = 1
-    // and we will obtain (Maple was used for that) the following for components of f
-    f[0] = 0.0;
-    f[3] = (2.*g22*A2*s2*a*a2*k[2]*k[0]*k[3]-g22*A2*a2*k[2]*k[0]*k[0]-
-        2.*g11*s*s2*A1*a2*k[1]*r2*k[3]*k[0]-g22*A2*s2*s2*r2*k[2]*a2*k[3]*k[3]-
-        2.*g11*s*s2*A1*a2*a2*k[1]*k[3]*k[0]+g11*s*s2*A1*a*a2*k[1]*k[0]*k[0]-
-        g22*A2*s2*s2*a2*a2*k[2]*k[3]*k[3]+g11*s*s2*A1*a*k[1]*r2*r2*k[3]*k[3]+
-        2.*g22*A2*s2*r2*k[2]*k[0]*a*k[3]-g22*A2*r2*k[2]*k[0]*k[0]+
-        2.*g11*s*s2*A1*a*a2*k[1]*r2*k[3]*k[3]+g11*s*s2*A1*a2*a2*a*k[1]*k[3]*k[3]-
-        sqrt(-pow(a*k[0]*k[0]+a*a2*k[3]*k[3]*s2-a2*k[0]*k[3]*s2-a2*k[0]*k[3]+
-        a*k[3]*k[3]*r2*s2-k[0]*k[3]*r2,2.)*(-2.*g33*k[0]*k[0]*a2*s2*k[3]*k[3]*r2+
-        4.*g33*a*a2*s2*s2*k[3]*k[3]*k[3]*r2*k[0]-g11*s2*s2*s2*a2*k[1]*k[1]*r2*r2*k[3]*k[3]-
-        2.*g11*s2*s2*s2*a2*a2*k[1]*k[1]*r2*k[3]*k[3]+2.*g11*s2*s2*s2*a2*a2*a*k[1]*k[1]*k[3]*k[0]-
-        g22*s2*s2*s2*r2*r2*k[2]*k[2]*a2*k[3]*k[3]-2.*g22*s2*s2*s2*r2*k[2]*k[2]*a2*a2*k[3]*k[3]-
-        2.*g22*s2*r2*k[2]*k[2]*a2*k[0]*k[0]+2.*g22*s2*s2*a2*a2*a*k[2]*k[2]*k[0]*k[3]+
-        2.*g33*s2*s2*k[0]*a*k[3]*k[3]*k[3]*r2*r2-4.*g33*s2*s2*k[0]*k[0]*a2*k[3]*k[3]*r2+
-        2.*g33*s2*s2*s2*a*a2*k[3]*k[3]*k[3]*r2*k[0]+2.*g33*s2*k[0]*k[0]*k[0]*r2*k[3]*a+
-        2.*g11*s2*s2*s2*a*a2*k[1]*k[1]*r2*k[3]*k[0]+2.*g22*s2*s2*r2*r2*k[2]*k[2]*k[0]*a*k[3]+
-        4.*g22*s2*s2*r2*k[2]*k[2]*a*a2*k[0]*k[3]-g33*s2*s2*s2*a2*a2*a2*k[3]*k[3]*k[3]*k[3]-
-        g33*s2*k[0]*k[0]*k[0]*k[0]*a2-g11*s2*s2*s2*a2*a2*a2*k[1]*k[1]*k[3]*k[3]-
-        g11*s2*s2*s2*a2*a2*k[1]*k[1]*k[0]*k[0]-g22*s2*r2*r2*k[2]*k[2]*k[0]*k[0]-
-        g22*s2*s2*s2*a2*a2*a2*k[2]*k[2]*k[3]*k[3]-g22*s2*a2*a2*k[2]*k[2]*k[0]*k[0]-
-        g33*s2*k[0]*k[0]*r2*r2*k[3]*k[3]+2.*g33*s2*s2*k[0]*k[0]*k[0]*a*a2*k[3]-
-        g33*s2*s2*s2*a2*k[3]*k[3]*k[3]*k[3]*r2*r2-2.*g33*s2*s2*s2*a2*a2*k[3]*k[3]*k[3]*k[3]*r2+
-        2.*g33*s2*s2*s2*a2*a2*a*k[3]*k[3]*k[3]*k[0]-g33*s2*s2*s2*a2*a2*k[3]*k[3]*k[0]*k[0]+
-        A1*A1*a2*a2*g11*g22*k[2]*k[2]*s2+A1*A1*a2*a2*g11*g33*k[3]*k[3]*s2+
-        2.*A1*A1*a2*g11*g22*k[2]*k[2]*r2*s2+2.*A1*A1*a2*g11*g33*k[3]*k[3]*r2*s2+
-        A1*A1*g11*g22*k[2]*k[2]*r2*r2*s2+A1*A1*g11*g33*k[3]*k[3]*r2*r2*s2+
-        2.*A1*A2*a*a2*g11*g22*k[1]*k[2]*s*s2+2.*A1*A2*a*g11*g22*k[1]*k[2]*r2*s*s2+
-        A2*A2*a2*g11*g22*k[1]*k[1]*s2*s2+A2*A2*a2*g22*g33*k[3]*k[3]*s2*s2-
-        2.*A1*A1*a*a2*g11*g33*k[0]*k[3]*s2-2.*A1*A1*a*g11*g33*k[0]*k[3]*r2*s2+
-        A1*A1*a2*g11*g33*k[0]*k[0]*s2-2.*A2*A2*a*g22*g33*k[0]*k[3]*s2+A2*A2*g22*g33*k[0]*k[0]-
-        g33*k[0]*k[0]*a2*a2*s2*k[3]*k[3]+2.*g33*k[0]*k[0]*k[0]*a*a2*s2*k[3]+
-        2.*g33*a2*a2*a*s2*s2*k[3]*k[3]*k[3]*k[0]-4.*g33*a2*a2*s2*s2*k[3]*k[3]*k[0]*k[0])))/
-        ((g33*k[0]*k[0]*r2*r2*k[3]*k[3]+g33*k[0]*k[0]*a2*a2*k[3]*k[3]-
-        2.*g33*k[0]*k[0]*k[0]*a*a2*k[3]+g33*a2*a2*a2*s2*s2*k[3]*k[3]*k[3]*k[3]+
-        g22*r2*r2*k[2]*k[2]*k[0]*k[0]+g22*a2*a2*k[2]*k[2]*k[0]*k[0]+
-        g22*r2*r2*k[2]*k[2]*a2*s2*s2*k[3]*k[3]+2.*g22*r2*k[2]*k[2]*a2*a2*s2*s2*k[3]*k[3]-
-        2.*g22*a2*a2*a*k[2]*k[2]*k[0]*s2*k[3]+g11*a2*s2*s2*k[1]*k[1]*r2*r2*k[3]*k[3]+
-        2.*g11*a2*a2*s2*s2*k[1]*k[1]*r2*k[3]*k[3]-2.*g33*k[0]*a*s2*k[3]*k[3]*k[3]*r2*r2-
-        2.*g11*a2*a2*a*s2*s2*k[1]*k[1]*k[3]*k[0]-4.*g33*k[0]*a*a2*s2*k[3]*k[3]*k[3]*r2+
-        4.*g33*k[0]*k[0]*a2*s2*k[3]*k[3]*r2-2.*g33*a*a2*s2*s2*k[3]*k[3]*k[3]*r2*k[0]+
-        g33*k[0]*k[0]*k[0]*k[0]*a2-2.*g22*r2*r2*k[2]*k[2]*k[0]*a*s2*k[3]-
-        4.*g22*r2*k[2]*k[2]*k[0]*a*a2*s2*k[3]-2.*g11*a*a2*s2*s2*k[1]*k[1]*r2*k[3]*k[0]+
-        g22*a2*a2*a2*k[2]*k[2]*s2*s2*k[3]*k[3]+2.*g22*r2*k[2]*k[2]*k[0]*k[0]*a2+
-        g11*a2*a2*a2*s2*s2*k[1]*k[1]*k[3]*k[3]+g11*a2*a2*s2*s2*k[1]*k[1]*k[0]*k[0]+
-        2.*g33*k[0]*k[0]*r2*k[3]*k[3]*a2-2.*g33*k[0]*k[0]*k[0]*r2*k[3]*a-
-        2.*g33*k[0]*a2*a2*a*s2*k[3]*k[3]*k[3]+4.*g33*k[0]*k[0]*a2*a2*s2*k[3]*k[3]-
-        2.*g33*k[0]*k[0]*k[0]*a*a2*s2*k[3]+g33*a2*s2*s2*k[3]*k[3]*k[3]*k[3]*r2*r2+
-        2.*g33*a2*a2*s2*s2*k[3]*k[3]*k[3]*k[3]*r2-2.*g33*a2*a2*a*s2*s2*k[3]*k[3]*k[3]*k[0]+
-        g33*a2*a2*s2*s2*k[3]*k[3]*k[0]*k[0])*s);
-    f[1] = (A1-a*s*s*k[1]*f[3])/(k[0]-a*s*s*k[3]);
-    f[2] = (A2 + s*k[2]*f[3]*ra2)/(s*k[3]*ra2 - s*a*k[0]);
-    */
-}
 
 
 
@@ -1284,6 +1167,29 @@ void fourvelocity_radial(double vr, sim5metric *m, double U[4])
 
 
 
+DEVICEFUNC INLINE
+double fourvelocity_norm(
+    double U1, double U2, double U3, sim5metric *m)
+//*********************************************************
+{
+    double D = sqr(m->g03*U3) - m->g00*m->g11*sqr(U1) - m->g00*m->g22*sqr(U2) - m->g00*m->g33*sqr(U3) - m->g00;
+    return (-m->g03*U3-sqrt(D))/m->g00;
+}
+
+
+
+DEVICEFUNC 
+void fourvelocity(
+    double U1, double U2, double U3, sim5metric *m, double U[])
+//*********************************************************
+{
+    double D = sqr(m->g03*U3) - m->g00*m->g11*sqr(U1) - m->g00*m->g22*sqr(U2) - m->g00*m->g33*sqr(U3) - m->g00;
+    double N = (-m->g03*U3 - sqrt(D))/m->g00;
+    U[0] = 1./N;
+    U[1] = U1/N;
+    U[2] = U2/N;
+    U[3] = U3/N;
+}
 
 
 
@@ -1292,24 +1198,8 @@ void fourvelocity_radial(double vr, sim5metric *m, double U[4])
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* 
+replaced by tetrad_general
 
 DEVICEFUNC
 void ortho_tetrad_U(
@@ -1352,6 +1242,11 @@ void ortho_tetrad_U(
     e3[2] = 0.0;
     e3[3] = f * (-g03*U[3] - g00*U[0]);
 }
+*/
+
+
+/*
+commented out because orientation of vecotrs is unclear
 
 DEVICEFUNC
 void ortho_tetrad_U_phi_r_motion(
@@ -1365,10 +1260,7 @@ void ortho_tetrad_U_phi_r_motion(
 // - puts z-vector oriented along decreasing theta (goes "upwards" from eq plane)
 // - puts y-vector oriented along increasing phi
 {
-return;
-// orientation of vecotrs is unclear
 
-/*
     double k1 = sqrt(fabs(g33*sqr(U[3]) + g11*sqr(U[1]) + U[0]*(2.*g03*U[3]+g00*U[0])));
     double k3 = sqrt(fabs(g33*sqr(U[3])                 + U[0]*(2.*g03*U[3]+g00*U[0])));
     double f;
@@ -1394,94 +1286,8 @@ return;
     e3[1] = 0.0;
     e3[2] = 0.0;
     e3[3] = f * (-g03*U[3] - g00*U[0]);
+}
 */
-}
-
-
-DEVICEFUNC INLINE
-double fourvelocity_norm(
-    double U1, double U2, double U3, sim5metric *m)
-//*********************************************************
-{
-    double D = sqr(m->g03*U3) - m->g00*m->g11*sqr(U1) - m->g00*m->g22*sqr(U2) - m->g00*m->g33*sqr(U3) - m->g00;
-    return (-m->g03*U3-sqrt(D))/m->g00;
-}
-
-
-// ------- polarization routines --------------
 
 
 
-DEVICEFUNC
-void kappa_pw(double a, double r, double m, double k[4], double f[4], double *kappa1, double *kappa2)
-// following Connors, Piran, Stark (1980): kappa_pw = kappa1 - I*kappa2 = (A1 - I*A2)*(r - I*a*cos(theta))
-// => kappa1 = +r*A1 - a*cos(theta)*A2; kappa2 = -r*A2 - a*cos(theta)*A1
-// returns kappa_pw = kappa1 + I*kappa2
-// !! note the definition of kappa1 & kappa2, which os opposite to CPS(1980)
-{
-    // following Connors, Piran, Stark (1980):
-    double A1 = (k[0]*f[1]-k[1]*f[0]) + a*(1.-m*m)*(k[1]*f[3]-k[3]*f[1]);
-    double A2 = sqrt(1.-m*m)*( (r*r+a*a)*(k[3]*f[2]-k[2]*f[3]) - a*(k[0]*f[2]-k[2]*f[0]) );
-    *kappa1 = +r*A1 - a*m*A2;
-    *kappa2 = -r*A2 - a*m*A1;
-}
-
-
-DEVICEFUNC
-double polarization_angle_infty(double a, double inc, double alpha, double beta, sim5complex kappa)
-{
-// following Connors, Piran, Stark (1980): (note the opposite definition of kappa1,kappa2)
-//    double S = l/sin(inc) - a*sin(inc) = -alpha - a*sin(inc)
-//    double T = sqrt(q - pow(l*cos(inc)/sin(inc),2.) + pow(a*cos(inc),2.)) = beta
-//    this should be considered for k_\theta<0: if (k_\theta|_\infty < 0) T = -T
-    double kappa1 = creal(kappa);
-    double kappa2 = cimag(kappa);
-    double S = -alpha - a*sin(inc);
-    double T = +beta;
-    double X = (-S*kappa2 - T*kappa1)/(S*S+T*T);
-    double Y = (-S*kappa1 + T*kappa2)/(S*S+T*T);
-    return atan2(Y,X);
-}
-
-
-/*
-
-DEVICEFUNC INLINE
-void stokes_add(stokesp* dest, stokesp value)
-{
-    dest->i += value.i;
-    dest->q += value.q;
-    dest->u += value.u;
-    dest->v += value.v;
-}
-
-
-DEVICEFUNC INLINE
-double stokes_poldeg(stokesp sp)
-{
-    return (sp.i>0.0) ? sqrt(sqr(sp.q) + sqr(sp.u))/sp.i : 0.0;
-}
-
-
-DEVICEFUNC INLINE
-double stokes_polang(stokesp sp)
-{
-    double pxang = (sp.i>0.0) ? 0.5*atan2(sp.u/sp.i,sp.q/sp.i) : 0.0;
-    while (pxang < 0.0)  pxang += 2.*M_PI;
-    while (pxang > M_PI) pxang -= M_PI;
-    return pxang;
-}
-
-
-DEVICEFUNC INLINE
-void lorentz_boost_x(double V, double X[])
-// makes lorentz boost of vector X(t,x,y,z) in x direction by velocity V
-{
-    double t = X[0];
-    double x = X[1];
-    double gamma = 1./sqrt(1.-V*V);
-    X[0] = gamma * (t + V*x);
-    X[1] = gamma * (x + V*t);
-}
-
-*/

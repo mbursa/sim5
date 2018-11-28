@@ -1,6 +1,7 @@
 #ifndef _SIM5INCLUDE_H
 #define _SIM5INCLUDE_H
 
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

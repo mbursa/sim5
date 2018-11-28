@@ -41,7 +41,7 @@
 #define solar_mass          1.988920e+33         //!< solar mass [g]
 #define grav_const          6.673000e-08         //!< gravitational constant [cm3 g-1 s-2]
 #define planck_h            6.626069e-27         //!< planck constant [erg.s]
-#define atomig_mass_unit    1.660539e−24         //!< atomic mass unit [g]
+#define atomic_mass_unit    1.660539e−24         //!< atomic mass unit [g]
 #define avogadro_number     6.022141e+23         //!< Avogadro number [mol^-1]
 
 

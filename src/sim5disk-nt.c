@@ -56,7 +56,7 @@ int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int option
     }
     else {
         disk_nt_disk_mdot = mdot_or_L;
-        //fprintf(stderr,"(disk-nt) mdot set to %.5f: (%.6e 10^18 g/s; lum=%.5f)\n", disk_nt_disk_mdot, disk_nt_disk_mdot*disk_nt_bh_mass*Mdot_Edd/1e18, disk_nt_lum());
+        //fprintf(stderr,"(disk-nt) mdot set to %.5f: (%.6e 10^18 g/s; lum=%.5f)\n", disk_nt_disk_mdot, disk_nt_disk_mdot*disk_nt_bh_mass*Mdot_Edd/1e18, disk_nt_lumi());
     }
     return 0;
 }
@@ -119,7 +119,7 @@ double disk_nt_flux(double r)
     f3=3.*sqr(x3-a)/(x3*(x3-x1)*(x3-x2))*log((x-x3)/(x0-x3));
     F = 1./(4.*M_PI*r) * 1.5/(x*x*(x*x*x-3.*x+2.*a)) * (f0-f1-f2-f3);
 
-    // in Newtonian limit flux is F = 3/(8pi) * G*M*Mdot/r^3 = 3*x^3/(8pi) G^-2*Mdot*M^-2*c^6
+    // in Newtonian limit flux is F = 3/(8pi) * G*M*Mdot/r^3 = 3/(8pi) x^-3 G^-2 * Mdot*M^-2*c^6
     // where x=r/(GM/c2), m=M/M_sun, mdot=Mdot/(M/M_sun*Mdot_Edd), r=GM/c2*x; Mdot_Edd is Eddington acc rate for BH of
     // F ~ mdot/m * Mdot_Edd * G^-2 * c^6 * M_sun^-2 [kg s^-3] = mdot/m * 9.172138e+28 [erg cm^-2 s^-1]
     // (Mdot_Edd*gram2kg)/sqr(grav_const)*sqr3(speed_of_light2)/sqr(solar_mass)*joule2erg/msq2cmsq = 9.1721376255e+28
@@ -133,7 +133,7 @@ double disk_nt_flux(double r)
 
 
 DEVICEFUNC
-double disk_nt_lum()
+double disk_nt_lumi()
 //! Gets total disk luminosity.
 //! Luminosity is obtained by integrating local flux over the surface area of the disk 
 //! going into the whole sky (4pi solid angle). 
@@ -181,21 +181,6 @@ double disk_nt_mdot()
 //! @result Mass accretion rate in Eddington units.
 {
     return disk_nt_disk_mdot;
-}
-
-
-
-DEVICEFUNC
-double disk_nt_temp(double r)
-//! Effective temperature.
-//! Returns disk effective temperature at given radius. The temperature value corresponds to 
-//! total outgoing flux at thar radius through the Steffan-Boltzmann law.
-//!
-//! @param r radius (measured in equatorial plane) [rg]
-//!
-//! @result Effective surface temperatute in [K].
-{
-    return sqrt4(disk_nt_flux(r)/sb_sigma);
 }
 
 
@@ -327,7 +312,7 @@ void disk_nt_dump()
     printf("# rmax     = %.4f\n", disk_rmax);
     printf("# alpha    = %.4f\n", disk_nt_disk_alpha);
     printf("# options  = %d\n",   disk_nt_options);
-    printf("# L        = %e\n", disk_nt_lum());
+    printf("# L        = %e\n", disk_nt_lumi());
     printf("# mdot     = %e\n", disk_nt_mdot());
     printf("#-------------------------------------------\n");
     printf("# r   flux   sigma   ell   vr   H   dH/dr\n");
@@ -358,7 +343,7 @@ double disk_nt_find_mdot_for_luminosity(double L0)
 
     double fce(double xmdot) {
         disk_nt_disk_mdot = xmdot;
-        return L0-disk_nt_lum();
+        return L0-disk_nt_lumi();
     }
 
     int res = rtbis(0.0, 100.0, 1e-6, fce, &L);

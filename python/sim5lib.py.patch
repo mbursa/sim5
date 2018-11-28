@@ -1,0 +1,34 @@
+--- sim5lib.py	2018-10-18 10:13:08.814950498 +0200
++++ sim5lib.py.target	2018-10-18 10:17:37.737932819 +0200
+@@ -4,16 +4,16 @@
+ # Do not make changes to this file unless you know what you are doing--modify
+ # the SWIG interface file instead.
+ 
++# append the path to shared-object module 
++import os,sys
++sim5dir = os.path.normpath(os.path.dirname(os.path.abspath(__file__))+'/../lib')
++sys.path.append(sim5dir)
++
+ from sys import version_info as _swig_python_version_info
+ if _swig_python_version_info >= (2, 7, 0):
+     def swig_import_helper():
+         import importlib
+-        pkg = __name__.rpartition('.')[0]
+-        mname = '.'.join((pkg, 'sim5lib')).lstrip('.')
+-        try:
+-            return importlib.import_module(mname)
+-        except ImportError:
+-            return importlib.import_module('sim5lib')
++        return importlib.import_module('sim5lib')
+     _sim5lib = swig_import_helper()
+     del swig_import_helper
+ elif _swig_python_version_info >= (2, 6, 0):
+@@ -22,7 +22,7 @@
+         import imp
+         fp = None
+         try:
+-            fp, pathname, description = imp.find_module('sim5lib', [dirname(__file__)])
++            fp, pathname, description = imp.find_module('sim5lib', [sim5dir])
+         except ImportError:
+             import _sim5lib
+             return _sim5lib

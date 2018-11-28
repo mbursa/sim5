@@ -41,6 +41,7 @@
 #include "sim5disk-nt.h"
 #endif
 
+#include "sim5polarization.h"
 #include "sim5radiation.h"
 
 #endif
