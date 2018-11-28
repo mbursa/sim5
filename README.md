@@ -2,7 +2,7 @@
 
 ## Introduction
 
-SIM5 is a C library with a Python interface that contains a collection of routines for relativistic raytracing and radiation transfer in GR. It has a special focus on raytracing from accretin disks, tori, hot spots or any other 3D configuration of matter in Kerr geometry, but it can be used with any other metric as well. It can handle both optically thick and thin sources as well as transport of polarization of the radiation and helps to calculate the propagation of light rays from the source to an observer through a curved spacetime. It supports parallelization and runs on GPUs.
+SIM5 is a C library with a Python interface that contains a collection of routines for relativistic raytracing and radiation transfer in GR. It has a special focus on raytracing from accretion disks, tori, hot spots or any other 3D configuration of matter in Kerr geometry, but it can be used with any other metric as well. It can handle both optically thick and thin sources as well as transport of polarization of the radiation and helps to calculate the propagation of light rays from the source to an observer through a curved spacetime. It supports parallelization and runs on GPUs.
 
 ## Features
 
@@ -12,7 +12,7 @@ The library contains
 * basic routines related to GR and Kerr geometry in particular
 * routines for computing null geodesics and GR raytracing with polarization 
 
-The libraray is thread-safe and supports parallelization of the calculations at both CPUs (OpenMP/MPI) and GPUs (CUDA/OpenCL). 
+The library is thread-safe and supports parallelization of the calculations at both CPUs (OpenMP/MPI) and GPUs (CUDA/OpenCL). 
 
 ## Installation
 
@@ -24,7 +24,7 @@ The code does not have any external library dependencies except the standard sys
 
     make
     
-The compilation process creates a `lib` folder and puts three files there, `sim5lib.c`, `sim5lib.h` and `sim5lib.so`. The first two files contain a complete C source code which has been merged by the compiler process from all the individual source files in `src` folder. You need those files to staticly link SIM5 in your code (most typical usage). The third file is a compiled library used for run-time linking. It is used by the Python interface, but you may use it for dynamical linking of SIM5 to your code too.
+The compilation process creates a `lib` folder and puts three files there, `sim5lib.c`, `sim5lib.h` and `sim5lib.so`. The first two files contain a complete C source code which has been merged by the compiler process from all the individual source files in `src` folder. You need those files to statically link SIM5 in your code (most typical usage). The third file is a compiled library used for run-time linking. It is used by the Python interface, but you may use it for dynamical linking of SIM5 to your code too.
 
 ## Usage
 
@@ -95,9 +95,9 @@ Python calls to SIM5 routines are handled by the compiled C code in `sim5lib.so`
 
 tbd
 
-### Code paralelization
+### Code parallelization
 
-As the library is a collection of routines, it does not have any paralelization built in itself, but it is very easy to write CPU/GPU parallel code with it. SIM5 uses strict encapsulation and all its functions use only the data that is passed in as parameters; there are no global variabes in the library. This allows to write thread-safe codes that can be sraightforwardly paralelized. Examples for OpenMP, MPI and CUDA paralelization are provided in the `examples` folder.
+As the library is a collection of routines, it does not have any parallelization built in itself, but it is very easy to write CPU/GPU parallel code with it. SIM5 uses strict encapsulation and all its functions use only the data that is passed in as parameters; there are no global variables in the library. This allows to write thread-safe codes that can be straightforwardly parallelized. Examples for OpenMP, MPI and CUDA parallelization are provided in the `examples` folder.
 
 ## Documentation
 
@@ -112,6 +112,7 @@ If you have used SIM5 in your code or used a code that itself is using SIM5, ple
 
 
 
-## Licence
+## License
 
 SIM5 is released under the MIT License.
+
