@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
     // for BH spin values from 0 to 1 print the radius of BH horizon and 
     // the location of the marginally stable orbit
-    for (a=0.0; a+=0.01; a<1.0) {
+    for (a=0.0; a<1.0; a+=0.01) {
         rbh = r_bh(a);
         rms = r_ms(a);
         fprintf(stderr, "%.4e  %e  %e\n", a, rbh, rms);
