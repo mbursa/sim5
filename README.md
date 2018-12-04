@@ -101,14 +101,14 @@ As the library is a collection of routines, it does not have any parallelization
 
 ## Documentation
 
-Documentation for the library is generated automatically (by [Doxygen](http://www.doxygen.nl/) from the comments in the source code. See [doc/sim5lib-doc.md](doc/sim5lib-doc.md) for the compiled file with a list of routines and constants.
+Documentation for the library is generated automatically (by [Doxygen](http://www.doxygen.nl/)) from the comments in the source code. See [doc/sim5lib-doc.md](doc/sim5lib-doc.md) for the compiled file with a list of routines and constants.
 
 ## Citing
 
 If you want to refer to SIM5 in your paper, please give the following reference:
 Bursa, M. 2017, Proceedings of Ragtime 17-19: Workshops on Black Holes and Neutron Stars, p.7 [[ADS link](http://adsabs.harvard.edu/abs/2017bhns.work....7B)]
 
-If you have used SIM5 in your code or used a code that itself is using SIM5, please acknowledge the use of the software by [citing](http://ascl.net/wordpress/about-ascl/citing-the-ascl-and-codes/) its ASCL record: [ascl:xxx](http://adsabs.harvard.edu/abs/xxx).
+If you have used SIM5 in your code or used a code that itself is using SIM5, please acknowledge the use of the software by [citing](http://ascl.net/wordpress/about-ascl/citing-the-ascl-and-codes/) its ASCL record: [ascl:1811.011](http://adsabs.harvard.edu/abs/2018ascl.soft11011B).
 
 
 
