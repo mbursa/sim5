@@ -1,32 +1,43 @@
 # SIM5 Library Reference
 
-<br/>
+SIM5 is a collection of C routines for relativistic raytracing and radiation transfer. It has a special focus on raytracing from accretion disks, tori, hot spots or any custom 3D configuration of matter in Kerr geometry, but it can be used with any other metrics as well. It can handle both optically thick and thin sources as well as transport of polarization properties and helps to calculate the propagation of light rays from the source to an observer through a curved spacetimes. The library is threas-safe (with a few documented exceptions) compiles with Nvidia CUDA compiler which opens the door to massive parallelization using GPUs.
+
+SIM5 also comes with a Python interface making it very easy to call its functions directly from Python scripts. In addition it provides few Python classes to handle some more complex tasks.
+
+The following documentation provides a detailed reference to the functions of the library. The library also comes with couple of examples that illustrate how to piece the individual routines together to do some useful stuff. Routines are grouped together according to specific topics. The content gives a list of these topics with link to corresponding parts of the docs. If you are looking for something specific, use Ctrl-F.
+
+<br>
 
 ## Content
 * [Constants and unit conversions (sim5const)](#sim5const)
 * [Thin disk routines (sim5disk-nt)](#sim5disk-nt)
-* [ (sim5distributions)](#sim5distributions)
-* [ (sim5integration)](#sim5integration)
-* [Interpolation routines (sim5interpolation)](#sim5interpolation)
-* [ (sim5kerr-geod)](#sim5kerr-geod)
+* [Wrapper for dynamic linking an external library with a disk model (sim5disk)](#sim5disk)
+* [Drawing numbers from statistical distributions (sim5distributions)](#sim5distributions)
+* [Numerical integration (sim5integration)](#sim5integration)
+* [Numerical interpolation (sim5interpolation)](#sim5interpolation)
+* [Null geodesics in Kerr spacetime (sim5kerr-geod)](#sim5kerr-geod)
 * [Basic spacetime routines (sim5kerr)](#sim5kerr)
-* [ (sim5math)](#sim5math)
-* [ (sim5polyroots)](#sim5polyroots)
+* [Mathematical routines (sim5math)](#sim5math)
+* [Mathematical macros (sim5math)](#sim5math)
+* [Polarization properties of radiation (sim5polarization)](#sim5polarization)
+* [Polynomial roots (sim5polyroots)](#sim5polyroots)
 * [Radiative processes routines (sim5radiation)](#sim5radiation)
 * [Raytracing (sim5raytrace)](#sim5raytrace)
 * [Root finding (sim5roots)](#sim5roots)
-* [ (sim5utils)](#sim5utils)
+* [Utility routines (sim5utils)](#sim5utils)
 
 
-<br/>
+<br>
+
+<br>
 
 ## <a name="sim5const"></a>sim5const.h - Constants and unit conversions
 
 
 
-The library's default unit system is CGS. Sometimes constants in SI units (prefixed by `si_`) or in geometrical units (G=c=1; prefixed by `gu_`) are needed.
+The library's default unit system is CGS, which is what astronomers like. Any unprefixed constant is given in this system of units. Sometimes constants in SI units (prefixed by `si_`) or in geometrical units (G=c=1; prefixed by `gu_`) are needed and few of them are defined too.
 
-To convert between different units, some frequent conversion factors are defined. E.g. by multipying an energy value given in ergs by `erg2kev` factor makes a conversion to kiloelectronvolts. 
+To convert between different units, some frequent conversion factors are defined (with the number "2" in the name). E.g. by multipying an energy value given in ergs by `erg2joule` factor, one gets the value in Joules. 
 
 
 | Name | Description | Value |
@@ -43,7 +54,7 @@ To convert between different units, some frequent conversion factors are defined
 | solar_mass | solar mass [g] | 1.988920e+33 |
 | grav_const | gravitational constant [cm3 g-1 s-2] | 6.673000e-08 |
 | planck_h | planck constant [erg.s] | 6.626069e-27 |
-| atomig_mass_unit | atomic mass unit [g] | 1.660539e−24 |
+| atomic_mass_unit | atomic mass unit [g] | 1.660539e−24 |
 | avogadro_number | Avogadro number [mol^-1] | 6.022141e+23 |
 | Mdot_Edd | Eddington mass accretion rate [g/s * (M/Msun)] | 2.225475942e+18 |
 | L_Edd | Eddington luminosity [erg/s * (M/Msun)] | 1.257142540e+38 |
@@ -79,28 +90,32 @@ To convert between different units, some frequent conversion factors are defined
 | cm2m | centimeter->meter | 1.000000e-02 |
 | kev2ev | keV->eV | 1.000000e+03 |
 | ev2kev | eV->keV | 1.000000e-03 |
-<br/><br/><br/>
+<br><br><br>
+
+<br>
 
 ## <a name="sim5disk-nt"></a>sim5disk-nt.c - Thin disk routines
 
 
 
-Provides routines for Novikov-Thorne thin disk model 
+Provides routines for the radial structure of a relativistic thin disk model as given by Novikov & Thorne (1973) and Page & Thorne (1974).
+
+NOTE: This unit uses some static variables to store some persistent information and due to that it is NOT thread-safe. For the same reasons, the routines declared here are not available to CUDA. 
 
 
 #### disk_nt_setup()
 
-Set up a relativistic (Novikov-Thorne) model of thin disk.
+Sets up a relativistic (Novikov-Thorne) model of a thin disk.
 
 
-    DEVICEFUNC int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int _options)
+    DEVICEFUNC int disk_nt_setup(double M, double a, double mdot_or_L, double alpha, int options)
 
-The disk can be set up using either mass accretion rate or luminosity. In case of Mdot, this is specified as a ratio of actual accretion rate in grams per second to the Eddington mass acretion rate corresponding to the given mass. The Eddington mass accretion rate constant is declared in sim5const.h. In case of luminosity, the model sets accretion rate such that the integrated disk luminosity matches the given value in ergs/sec relative to the Eddington luminosity again declared in sim5const.h.
+The disk can be set up using either mass accretion rate (mdot) or by specifying its luminosity (L). Mass accretion rate is passed as a ratio between the actual mass supply rate in grams per second to the Eddington mass acretion rate corresponding to the given mass M (the Eddington mass accretion rate and luminosity constant are declared in sim5const.h unit). In case of luminosity is the initial parameter, the model calculates the accretion rate in such a way that the integrated disk luminosity matches the given value in ergs/sec relative to the Eddington luminosity for the given black-hole mass.
 
 **Parameters**
 
-* **M**: mass of central BH [M_sun] 
-* **a**: spin of central BH [0..1] 
+* **M**: mass of the central BH [M_sun] 
+* **a**: spin of the central BH [0..1] 
 * **mdot_or_L**: mass accretion rate (default) or luminosity (both in eddington units; see sim5const.h) 
 * **alpha**: viscosity parameter 
 * **options**: optional switches (default=0; switches can be combined with `+` operator)
@@ -112,13 +127,14 @@ The disk can be set up using either mass accretion rate or luminosity. In case o
 
 **Return value**
 
-A status code (currently zero) 
+A status code (currently returns always zero) 
 
 
 
+
+<br>
 
 ---------
-<br/>
 
 #### disk_nt_finish()
 
@@ -127,10 +143,11 @@ Finalize the disk model.
 
     DEVICEFUNC void disk_nt_finish()
 
-Cleans up and frees memory. 
+Cleans up and frees necessary memory. 
+
+<br>
 
 ---------
-<br/>
 
 #### disk_nt_r_min()
 
@@ -139,7 +156,7 @@ Minimal radius of the disk (disk inner edge).
 
     DEVICEFUNC double disk_nt_r_min()
 
-Provides minimal value for radius for which the functions provide valid results. For NT disk, this corresponds to the radius of marginally stable orbit (r_ms), where there is zero torque in the fluid.
+Provides minimal value for radius for which the functions provide valid results. For NT disk, this corresponds to the radius of the marginally stable orbit (r_ms, also known as ISCO), where there is zero torque in the fluid.
 
 **Return value**
 
@@ -148,8 +165,9 @@ Radius of disk inner edge [GM/c2]
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### disk_nt_flux()
 
@@ -158,9 +176,9 @@ Local flux from one side of the disk.
 
     DEVICEFUNC double disk_nt_flux(double r)
 
-Provides radial radiation flux dependence for Novikov-Thorne accretion disk. Formulae based on Page&Thorne(1974) http://adsabs.harvard.edu/abs/1974ApJ...191..499P
+Provides radial radiation flux dependence for Novikov-Thorne accretion disk. Formulae are based on Page&Thorne(1974) http://adsabs.harvard.edu/abs/1974ApJ...191..499P
 
-Note the retuned flux is local flux, i.e. flux measured by observer that is at rest with respect to the fluid.
+Note the retuned flux is local flux, i.e. flux measured by an observer that is at rest with respect to the fluid.
 
 **Parameters**
 
@@ -174,21 +192,24 @@ Total outgoing flux from unit area on one side of the disk [erg cm-2 s-1].
 
 
 
+<br>
+
 ---------
-<br/>
 
-#### disk_nt_lum()
+#### disk_nt_lumi()
 
-Gets total disk luminosity.
-
-
-    DEVICEFUNC double disk_nt_lum()
-
-Luminosity is obtained by integrating local flux over the surface area of the disk going into the whole sky (4pi solid angle). The integration makes a proper transformation of local flux to coordinate frame, but ignores other relativistic effects like light bending.
+Total disk luminosity.
 
 
+    DEVICEFUNC double disk_nt_lumi()
 
-$$L = 2 * 2\pi \int F(r) r dr$$
+Luminosity is obtained by integrating local flux over the surface area of the disk (both sides) going into the whole sky (4pi solid angle). The integration makes a proper transformation of the flux from local to coordinate frame, but it ignores other relativistic effects, e.g. light bending.
+
+
+```math
+L = 2 * 2\pi \int F(r) (-U_t) r dr
+```
+
 
 **Return value**
 
@@ -197,8 +218,9 @@ Total disk luminosity of both surfaces [erg s-1]
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### disk_nt_mdot()
 
@@ -216,32 +238,9 @@ Mass accretion rate in Eddington units.
 
 
 
----------
-<br/>
-
-#### disk_nt_temp()
-
-Effective temperature.
-
-
-    DEVICEFUNC double disk_nt_temp(double r)
-
-Returns disk effective temperature at given radius. The temperature value corresponds to total outgoing flux at thar radius through the Steffan-Boltzmann law.
-
-**Parameters**
-
-* **r**: radius (measured in equatorial plane) [rg]
-
-
-**Return value**
-
-Effective surface temperatute in [K]. 
-
-
-
+<br>
 
 ---------
-<br/>
 
 #### disk_nt_sigma()
 
@@ -250,11 +249,13 @@ Column density.
 
     DEVICEFUNC double disk_nt_sigma(double r)
 
-Returns midplane column density of the fluid at given radius for the first two zones according to formulae from Chandrasekhar book.
+Returns midplane column density of the fluid, i.e. the fluid density integrated from midplane to the disk surface, at a given radius for the first two zones according to formulae from Chandrasekhar's book.
 
 
+```math
+ \Sigma = \int_0^H \rho dz 
+```
 
-$$ \Sigma = \int_0^H \rho dz $$
 
 **Parameters**
 
@@ -268,8 +269,9 @@ Midplane column density in [g/cm2].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### disk_nt_ell()
 
@@ -292,8 +294,9 @@ Specific angular momentum in [g.u.].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### disk_nt_vr()
 
@@ -302,7 +305,7 @@ Radial velocity.
 
     DEVICEFUNC double disk_nt_vr(double r)
 
-Returns bulk radial velocity of the fluid at given radius. (For thin disk approximation, this is always zero.)
+Returns bulk radial velocity of the fluid at given radius, which in case of thin disks is always zero.
 
 **Parameters**
 
@@ -316,8 +319,9 @@ Radial velocity in [speed_of_light].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### disk_nt_h()
 
@@ -326,7 +330,7 @@ Surface height.
 
     DEVICEFUNC double disk_nt_h(double r)
 
-Returns height of the surface of the disk (effective photosphere) above midplane at given radius. (For thin disk approximation, this is always zero.)
+Returns the scale-height of the surface of the disk (a measure of the effective photosphere location) above midplane at given radius. In thin disks, this is always zero. In fact, the height of the disk should be where the equation of hydrostatic equilibrium gives it, but the thin disk approximation assumes the disk razor thin, hence H=0.
 
 **Parameters**
 
@@ -335,13 +339,14 @@ Returns height of the surface of the disk (effective photosphere) above midplane
 
 **Return value**
 
-Radial velocity in [speed_of_light]. 
+Scale-height [rg]. 
 
 
 
+
+<br>
 
 ---------
-<br/>
 
 #### disk_nt_dhdr()
 
@@ -350,7 +355,7 @@ Derivative of surface height.
 
     DEVICEFUNC double disk_nt_dhdr(double r)
 
-Returns surface profile as derivative $dH/dR$ of its height above midplane at given radius. (For thin disk approximation, this is always zero.)
+Returns surface profile as derivative $`dH/dR`$ of its height above midplane at given radius. For thin disks, this is always zero.
 
 **Parameters**
 
@@ -364,32 +369,388 @@ Derivative of surface height.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### disk_nt_dump()
 
-Dump function printing disk provile.
+Prints the disk structure as a function of radius.
 
 
-    DEVICEFUNC void disk_nt_dump()
+    DEVICEFUNC void disk_nt_dump(char *filename)
 
-The function prints to stdout profile of all quantities as a function fo radius from r_ms to some outer radius (~2000 rg). 
+The function prints the profile of all quantities as a function of radius from r_ms to some outer radius (~2000 rg). It prints to a file identified by its path (overwrites existing) and if that is empty it prints to STDOUT.
+
+**Parameters**
+
+* **filename**: Path to a file that should be written. If NULL then it prints to STDOUT. 
+
+
+
+
+<br>
 
 ---------
-<br/>
 
-#### disk_nt_find_mdot_for_luminosity()
+<br><br><br>
+
+<br>
+
+## <a name="sim5disk"></a>sim5disk.c - Wrapper for dynamic linking an external library with a disk model
 
 
-    DEVICEFUNC double disk_nt_find_mdot_for_luminosity(double L0)
+
+Loads an external library and binds its functions. An external library (in Linux) is a compiled shared library with .so extension.
+
+The external library has to declare at least the bellow listed methods and provide an implementation of them. Calls to those methods in SIM5 are passed to the linked library and the result is returned by a wrapper function. See a demo of how to use this functionality in the examples folder.
+
+NOTE: This unit uses static variables to store persistent information about the linked library. As a result, routines in this module are NOT thread-safe in a sense different threads cannot each link a different library. They can, however, all make calls to the already linked library. For the same reasons, the routines declared here are not available to CUDA. 
+
+
+#### diskmodel_init()
+
+External disk model initialization.
+
+
+    int diskmodel_init(char *modellib, double M, double a, char *params)
+
+Loads the compiled library, links is into the program and calls its initialization routine. All the required functions have to be declared in the library.
+
+**Parameters**
+
+* **modellib**: filesystem path to the library (string) 
+* **M**: mass of BH [Msun] 
+* **a**: spin of BH [0..1] 
+* **params**: parametres that are passed to the library initialization function
+
+
+**Return value**
+
+Return the result of the library's initialization function or -1 of the library could not loaded or be initialized. 
+
+
+
+
+<br>
 
 ---------
-<br/>
 
-<br/><br/><br/>
+#### diskmodel_done()
 
-## <a name="sim5distributions"></a>sim5distributions.c - 
+External disk model finitialization.
+
+
+    void diskmodel_done()
+
+Frees memory and unlinks the libraray. 
+
+<br>
+
+---------
+
+#### diskmodel_name()
+
+Model name.
+
+
+    char * diskmodel_name()
+
+Returns a pointer to a string with the model's name. 
+
+<br>
+
+---------
+
+#### diskmodel_r_min()
+
+Minimal radius of the disk (disk inner edge).
+
+
+    double diskmodel_r_min()
+
+Gives minimal value for radius for which the functions provide valid results. E.g. for NT disk, this corresponds to the radius of the marginally stable orbit.
+
+**Return value**
+
+Radius of disk inner edge [GM/c2] 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_mdot()
+
+Mass accretion rate.
+
+
+    double diskmodel_mdot()
+
+Returns mass accretion rate in Eddington units of (Mdot_Edd*M).
+
+**Return value**
+
+Mass accretion rate in Eddington units. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_lumi()
+
+Total disk luminosity.
+
+
+    double diskmodel_lumi()
+
+Luminosity is obtained by integrating local flux over the surface area of the disk (both sides) going into the whole sky (4pi solid angle). The integration makes a proper transformation of the flux from local to coordinate frame, but it ignores other relativistic effects, e.g. light bending.
+
+
+```math
+L = 2 * 2\pi \int F(r) (-U_t) r dr
+```
+
+
+**Return value**
+
+Total disk luminosity of both surfaces [erg s-1] 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_flux()
+
+Local flux from one side of the disk.
+
+
+    double diskmodel_flux(double R)
+
+Provides radial radiation flux dependence measured in local frame, i.e. flux measured by an observer that is at rest with respect to the fluid.
+
+**Parameters**
+
+* **R**: radius of emission [GM/c2]
+
+
+**Return value**
+
+Total outgoing flux from unit area on one side of the disk [erg cm-2 s-1]. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_sigma()
+
+Column density.
+
+
+    double diskmodel_sigma(double R)
+
+Returns midplane column density of the fluid, i.e. the fluid density integrated from midplane to the disk surface, at a given radius.
+
+**Parameters**
+
+* **R**: radius (measured in equatorial plane) [rg]
+
+
+**Return value**
+
+Midplane column density in [g/cm2]. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_ell()
+
+Specific angular momentum.
+
+
+    double diskmodel_ell(double R)
+
+Returns specific angular momentum of the fluid at given radius.
+
+**Parameters**
+
+* **R**: radius (measured in equatorial plane) [rg]
+
+
+**Return value**
+
+Specific angular momentum in [g.u.]. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_vr()
+
+Radial velocity.
+
+
+    double diskmodel_vr(double R)
+
+Returns bulk radial velocity of the fluid at given radius as measured by aan observer in the co-rotating frame.
+
+**Parameters**
+
+* **R**: radius (measured in equatorial plane) [rg]
+
+
+**Return value**
+
+Radial velocity in [speed_of_light]. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_h()
+
+Surface height.
+
+
+    double diskmodel_h(double R)
+
+Returns the scale-height of the surface of the disk above midplane at given radius.
+
+**Parameters**
+
+* **R**: radius (measured in equatorial plane) [rg]
+
+
+**Return value**
+
+Scale-height [rg]. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_dhdr()
+
+Derivative of surface height.
+
+
+    double diskmodel_dhdr(double R)
+
+Returns surface profile as derivative $`dH/dR`$ of its height above midplane at given radius.
+
+**Parameters**
+
+* **R**: radius (measured in equatorial plane) [rg]
+
+
+**Return value**
+
+Derivative of surface height. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_eval()
+
+Other quantity evaluation.
+
+
+    double diskmodel_eval(double R, int quantity)
+
+Returns the value of a given quantity. The disk model may provide more quantities than the standard set. Additional quantities may be accessed using this function by providing the quantity identifier.
+
+**Parameters**
+
+* **R**: radius (measured in equatorial plane) [rg] 
+* **quantity**: quantity identified code
+
+
+**Return value**
+
+The value of the requested quantity. 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_params()
+
+Prints model parameters.
+
+
+    void diskmodel_params(FILE *stream)/! if(stream) _diskmodel_params(stream)
+
+Writes down the parameters of the model to the given stream. **Parameters**
+
+* **stream**: stream to write to 
+
+
+
+
+<br>
+
+---------
+
+#### diskmodel_dump()
+
+Prints the disk structure as a function of radius.
+
+
+    void diskmodel_dump(char *filename)
+
+The function prints the profile of all quantities as a function of radius from r_ms to some outer radius (~2000 rg). It prints to a file identified by its path (overwrites existing) and if that is empty it prints to STDOUT.
+
+**Parameters**
+
+* **filename**: Path to a file that should be written. If NULL then it prints to STDOUT. 
+
+
+
+
+<br>
+
+---------
+
+<br><br><br>
+
+<br>
+
+## <a name="sim5distributions"></a>sim5distributions.c - Drawing numbers from statistical distributions
+
+
+
+Routines for drawing random numbers that follow a given statistical distribution. 
 
 
 #### distrib_init()
@@ -399,7 +760,7 @@ Creates a distribution based on given probability density function (PDF).
 
     DEVICEFUNC void distrib_init(sim5distrib *d, double(*pdf)(double), double x_min, double x_max, int N)
 
-Uses given probability density function to initiate the internal data structure with calculated cummulative distribution its inverse.
+Uses given probability density function to initiate the internal data structure with calculated cummulative distribution and its inverse.
 
 **Parameters**
 
@@ -412,8 +773,9 @@ Uses given probability density function to initiate the internal data structure 
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### distrib_done()
 
@@ -429,8 +791,9 @@ Frees the internal data for the distribution.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### distrib_hit()
 
@@ -439,7 +802,7 @@ Generates a functional value on interval [x_min:x_max] according to the distribu
 
     DEVICEFUNC INLINE double distrib_hit(sim5distrib *d)
 
-With the help of precomputed cummulative distribution function it generates a value form the interval [x_min:x_max] and returns tnis value.
+With the help of precomputed cummulative distribution function it generates a value form the interval [x_min:x_max] and returns this value.
 
 **Parameters**
 
@@ -453,109 +816,182 @@ value from the distribution
 
 
 
----------
-<br/>
-
-<br/><br/><br/>
-
-## <a name="sim5integration"></a>sim5integration.c - 
-
-
-| Name | Description | Value |
-|------|-------------|-------|
-| NMAX |  | 23 |
-| NMAX |  | 23 |
-#### integrate_trapezoid_rule()
-
-Integration core routine based on trapezoid rule.
-
-
-    DEVICEFUNC void integrate_trapezoid_rule(double(*f)(double), double a, double b, int n, double *s)
-
-
-* computes the `n`-th stage of refinement of an extended trapezoidal rule for function <f> and limits `a` and `b`
-* when called with n=1, the routine returns `s` as the crudest estimate of $\int^a_b f(x) dx$
-* subsequent calls with n=2,3,... (in that sequential order) will improve the accuracy of `s` by adding 2^(n-2) additional interior points.
-* `s` must not be modified between sequential calls
-* implementation is based on Numerical Recipes with the improvement by GSL, where a varible pointer is passed to the routine to store the value of the latest refinement instead of that being a global variable
-* calling scheme: `for(j=1; j<=M+1; j++) trapezoid_rule(func, a, b, j, &answer);` 
-
-
-
+<br>
 
 ---------
-<br/>
+
+<br><br><br>
+
+<br>
+
+## <a name="sim5integration"></a>sim5integration.c - Numerical integration
+
+
+
+Routines for simple numerical integrations of functions. 
+
 
 #### integrate_trapezoid()
 
-Integration of function using trapezoid rule.
+Integral of a function using trapezoid rule.
 
 
     DEVICEFUNC double integrate_trapezoid(double(*f)(double), double a, double b, double acc)
 
+Computes the integral $` \int^a_b f(x) dx `$ in a series of refinement steps until the relative accuracy is better than requested or the maximum predefined number of steps is reached.
 
-* computes the integral ^a_b f(x) dx in a series of refinement steps until relative accuracy is better that <acc> or the maximum predefined number of steps is reached
-* accuracy should not be increased beyond ~10^-6 as roundoff errors start to accumulate if too many steps are taken 
+Note: Accuracy should not be increased beyond ~10^-6 as roundoff errors start to accumulate if too many steps are taken.
+
+**Parameters**
+
+* **f**: pointer fo a function that is to be integrated 
+* **a**: interval of integration lower limit 
+* **b**: interval of integration upper limit 
+* **acc**: relative accuracy of integration
+
+
+**Return value**
+
+Integral of the function over the interval [a,b]. 
 
 
 
+
+<br>
 
 ---------
-<br/>
 
 #### integrate_simpson()
 
-Integration of function using simpson rule.
+Integral of a function using Simpson rule.
 
 
     DEVICEFUNC double integrate_simpson(double(*f)(double), double a, double b, double acc)
 
+Computes the integral $` \int^a_b f(x) dx `$ in a series of refinement steps until the relative accuracy is better than requested or the maximum predefined number of steps is reached. Simpson rule is generally more efficient than trapezoid rule when the function to be integrated has a finite 4th derivative (continuous 3rd derivative).
 
-* computes the integral ^a_b f(x) dx in a series of refinement steps until relative accuracy is better that <acc> or the maximum predefined number of steps is reached
-* simpson rule is generally more efficient than trapezoid rule when the function to be integrated has a finite 4th derivative (continuous 3rd derivative)
-* accuracy should not be increased beyond ~10^-6 as roundoff errors start to accumulate if too many steps are taken 
+Note: Accuracy should not be increased beyond ~10^-6 as roundoff errors start to accumulate if too many steps are taken.
+
+**Parameters**
+
+* **f**: pointer fo a function that is to be integrated 
+* **a**: interval of integration lower limit 
+* **b**: interval of integration upper limit 
+* **acc**: relative accuracy of integration
+
+
+**Return value**
+
+Integral of the function over the interval [a,b]. 
 
 
 
+
+<br>
 
 ---------
-<br/>
-
-#### gammln()
-
-
-    double gammln(double xx)
-
----------
-<br/>
 
 #### gauleg()
+
+Gauss-Legendre quadrature.
 
 
     DEVICEFUNC void gauleg(double x1, double x2, double x[], double w[], int n)
 
+Given the lower and upper limits of integration $`x_1`$ and $`x_2`$, and given $`n`$ points, this routine returns arrays $`x[n]`$ and $`w[n]`$ of length $`n`$, containing the abscissas and weights of the Gauss-Legendre n-point quadrature formula.
+
+To integrate a function $`f(x)`$ over the interval $`[x_1,x_2]`$, just do a simple summation: 
+```
+gauleg(x1, x2, x, w, n)
+integral = sum(i=0, i<n-1, f(x[i])*w[i])
+```
+
+
+
+Using n points, the method exactly integrates polynomials up to (2*n-1)'th degree. If the function $`f(x)`$ is well approximated by a polynomial, the integral will be very accurate.
+
+**Parameters**
+
+* **x1**: interval of integration lower limit 
+* **x2**: interval of integration upper limit 
+* **x**: pointer to an array where abscissas should be written 
+* **w**: pointer to an array where waights should be written 
+* **n**: number of quandrature points and also the minimal dimensions of x[] and w[] arrays
+
+
+**Return value**
+
+Abscissas and weights are returned in x[] and w[] arrays. 
+
+
+
+
+<br>
+
 ---------
-<br/>
 
 #### qgaus()
+
+Gauss-Legendre integral of a function.
 
 
     float qgaus(float(*func)(float), float a, float b)
 
+Returns the integral of the function over the interval [a,b] computed using the by ten-point Gauss-Legendre integration: the function is evaluated exactly ten times at interior points in the range of integration.
+
+**Parameters**
+
+* **func**: pointer to a function to be integrated 
+* **a**: interval of integration lower limit 
+* **b**: interval of integration upper limit
+
+
+**Return value**
+
+Value of the integral over the interval [a,b]. 
+
+
+
+
+<br>
+
 ---------
-<br/>
 
 #### qgaus_general()
+
+A generalized version of qgauss() function.
 
 
     double qgaus_general(double w[], double y[], int N, double a, double b)
 
+It gives the integral of the function over the interval [a,b] on a supplied grid of functional values y and ther weights.
+
+**Parameters**
+
+* **func**: pointer to a function to be integrated 
+* **w**: array of weights 
+* **y**: array of functional values y=f(x[i]) 
+* **N**: length of w[] and y[] arrays 
+* **a**: interval of integration lower limit 
+* **b**: interval of integration upper limit
+
+
+**Return value**
+
+Value of the integral over the interval [a,b]. 
+
+
+
+
+<br>
+
 ---------
-<br/>
 
-<br/><br/><br/>
+<br><br><br>
 
-## <a name="sim5interpolation"></a>sim5interpolation.c - Interpolation routines
+<br>
+
+## <a name="sim5interpolation"></a>sim5interpolation.c - Numerical interpolation
 
 
 
@@ -587,8 +1023,9 @@ Returns interp object to be used in actual interpolation.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### sim5_interp_data_push()
 
@@ -608,8 +1045,9 @@ Adds a data point [x,y] into the interpolation object. This function is for fill
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### sim5_interp_eval()
 
@@ -633,8 +1071,9 @@ Interpolated value.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### sim5_interp_done()
 
@@ -652,8 +1091,9 @@ Frees the interpolation object interp (including a copied data, if necessary).
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### sim5_interp_alloc()
 
@@ -662,10 +1102,14 @@ Alloc interpolation object memory.
 
     DEVICEFUNC sim5interp * sim5_interp_alloc()
 
-Makes a memory allocation for interpolation object. This function should be used for heap-allocated variant of usage: sim5interp* interp;
+Makes a memory allocation for interpolation object. This function should be used for heap-allocated variant of usage: 
+```
+sim5interp* interp;
 interp = sim5_interp_alloc();
 sim5_interp_init(interp, ...);
 sim5_interp_free(interp);
+```
+
 
 
 **Return value**
@@ -675,8 +1119,9 @@ Interpolation object.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### sim5_interp_free()
 
@@ -694,259 +1139,356 @@ Frees the interpolation object interp that had been previously alocated by `sim5
 
 
 
----------
-<br/>
-
-<br/><br/><br/>
-
-## <a name="sim5kerr-geod"></a>sim5kerr-geod.c - 
-
-
-| Name | Description | Value |
-|------|-------------|-------|
-| theta_int |  | (g->mK*jacobi_icn((x)/sqrt(g->m2p),g->m2)) |
-| theta_inv |  | (sqrt(g->m2p)*jacobi_cn((x)/g->mK,g->m2)) |
-#### geodesic_priv_R_roots()
-
-
-    DEVICEFUNC int geodesic_priv_R_roots(geodesic *g, int *status)
+<br>
 
 ---------
-<br/>
 
-#### geodesic_priv_T_roots()
+<br><br><br>
+
+<br>
+
+## <a name="sim5kerr-geod"></a>sim5kerr-geod.c - Null geodesics in Kerr spacetime
 
 
-    DEVICEFUNC int geodesic_priv_T_roots(geodesic *g, int *status)
 
----------
-<br/>
+Routines for computing null geodesics (trajectories of light rays) in Kerr spacetime based on numerical evaluation of elliptic integrals. 
+
 
 #### geodesic_init_inf()
 
-Makes setup for geodesic that is specified by impact parameters at infinity.
+Initialization of a geodesic based on its impact parameters at infinity.
 
 
-    DEVICEFUNC int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g, int *status)
+    DEVICEFUNC int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g, int *error)
 
-Parameters: i - inclination angle of observer (angle between BH rotation axis and direction to observer) [radians] a - BH spin [0..1] alpha - impact parameter in horizontal direction [GM/c^2] beta - impact parameter in vertical direction [GM/c^2] g - structure with information about geodesic status - status variable
+Makes a setup for a geodesic that is specified by its impact parameters at infinity. The imapct parameter is a perpendicular distance of the ray from the line-of-sight of the observer towards the black hole (the ray is parallel to the line-of-sight at infinity).
 
-Returns:
-* status is 1 if setup is sucessfull, 0 in case of an error
-* information about geodesic is stored in structure g 
+**Parameters**
+
+* **i**: inclination angle of observer (angle between BH rotation axis and direction to observer) [radians] 
+* **a**: BH spin [0..1] 
+* **alpha**: impact parameter in horizontal direction [GM/c^2] 
+* **beta**: impact parameter in vertical direction [GM/c^2] 
+* **g**: structure with information about geodesic (output) 
+* **error**: error code (output)
+
+
+**Return value**
+
+Returns TRUE on success or FALSE on error. In the latter case, an non-zero error code is returned in error parameter. Information about the geodesic is stored in structure g. 
 
 
 
+
+<br>
 
 ---------
-<br/>
 
 #### geodesic_init_src()
 
-Makes setup for geodesic that is specified by a point and direction (4-momentum vector).
+Initialization of a geodesic based on a position and direction.
 
 
-    DEVICEFUNC int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodesic *g, int *status)
+    DEVICEFUNC int geodesic_init_src(double a, double r, double m, double k[4], int ppc, geodesic *g, int *error)
 
-Parameters: a - BH spin [0..1] r - radial coordinate [GM/c^2] m - poloidal coordinate [cos(theta)] k - direction of the photon (4-momentum vector) bpa - position with respect to periastron (0=before periastron, 1=after periastron) g - structure with information about geodesic status - status variable
+Makes a setup for a geodesic that is specified by a point and a direction (4-momentum vector) somewhere along the trajectory.
 
-Returns:
-* status is 1 if setup is sucessfull, 0 in case of an error
-* information about geodesic is stored in structure g 
+**Parameters**
+
+* **a**: BH spin [0..1] 
+* **r**: radial coordinate of the point [GM/c^2] 
+* **m**: poloidal coordinate of the point ( $`m=cos(\theta)`$) 
+* **k**: 4-momentum null vector ( $`k \cdot k=0`$) pointing in the direction of the ray 
+* **ppc**: position with respect to pericenter (0=before pericenter, 1=after pericenter) 
+* **g**: structure with information about geodesic (output) 
+* **error**: error code (output)
+
+
+**Return value**
+
+Returns TRUE on success or FALSE on error. In the latter case, an non-zero error code is returned in error parameter. Information about the geodesic is stored in structure g. 
 
 
 
+
+<br>
 
 ---------
-<br/>
 
 #### geodesic_P_int()
 
-Returns the value of position integral along geodesics at point r.
+Position integral along geodesics at radius r.
 
 
-    DEVICEFUNC double geodesic_P_int(geodesic *g, double r, int bpa)
+    DEVICEFUNC double geodesic_P_int(geodesic *g, double r, int ppc)
 
-The function gives the value of the integral P =  1/{R} dr =  1/{} d This integral is integrated from infinity to the point, where the geodesic reaches radius r either before or behind its periastron. The value of the integral increases monotonicly from infinity along the geodesic and thus we use it for parametrizing it. Note it is not affine parameter, which would be other choice for parametrization.
+It gives the value of the integral (Bursa 2017, eq. 34, and 43) 
+```math
+ P = \int 1/\sqrt{R} dr = \int 1/\sqrt{\Theta} d\theta 
+```
+ The integral is integrated from infinity to the given point on the trajecotry, where the geodesic reaches radius $`r`$ either before or behind the trajecory pericenter.
 
-Parameters: g - geodesic r - radial coordinate [GM/c^2] bpa - position with respect to periastron (0=before periastron, 1=after periastron)
+The value of the integral increases monotonicly from infinity along the geodesic and thus it provides a convenient way of parametrizing the position along the geodesic that is used in many other routined of the module. Note however, that the value of this integral is not the affine parameter, which would be another choice for parametrization.
 
-Returns: Value of the position integral between infinity and given point. 
+**Parameters**
+
+* **g**: geodesic data 
+* **r**: radial coordinate [GM/c^2] 
+* **ppc**: position with respect to pericenter (0=before pericenter, 1=after pericenter)
+
+
+**Return value**
+
+Value of the position integral between infinity and given point. 
+
+
+
+
+<br>
 
 ---------
-<br/>
-
-#### geodesic_position()
-
-Returns point on the geodesic, where the position integral gains value P.
-
-
-    DEVICEFUNC void geodesic_position(geodesic *g, double P, double x[4])
-
-The integral is evaluted in the form phi = a  (2r-al)/(Delta {R}) dr + l  sin^-2() / {Theta} d
-
-Parameters: g - geodesic P - value of the position integral x[out] - coordinate
-
-Returns: Fills x[] with position. 
-
----------
-<br/>
 
 #### geodesic_position_rad()
 
-Gives radius at which the position integral gains value P.
+Radius at which the position integral gains value P.
 
 
     DEVICEFUNC double geodesic_position_rad(geodesic *g, double P)
 
-Parameters: g - geodesic P - value of the position integral
+Given the value $`P`$ of the positional integral along the geodesic, the function computes the radial coordinate for the position.
 
-Returns: Radius [GM/c^2] 
+**Parameters**
+
+* **g**: geodesic data 
+* **P**: value of the position integral
+
+
+**Return value**
+
+Radial coordinate value [GM/c^2] or NAN in case of error. 
+
+
+
+
+<br>
 
 ---------
-<br/>
 
 #### geodesic_position_pol()
 
-Gives poloidal (theta) angle at which the position integral gains value P.
+Poloidal coordinate value at which the position integral gains value P.
 
 
     DEVICEFUNC double geodesic_position_pol(geodesic *g, double P)
 
-Parameters: g - geodesic P - value of the position integral
+Given the value $`P`$ of the positional integral along the geodesic, the function computes the poloidal coordinate for the position. The coordinate is returned as a cosine of the angle theta.
 
-Returns: Cosine of theta angle. 
+**Parameters**
+
+* **g**: geodesic data 
+* **P**: value of the position integral
+
+
+**Return value**
+
+Poloidal coordinate value [cos(theta)] or NAN in case of error. 
+
+
+
+
+<br>
 
 ---------
-<br/>
+
+#### geodesic_position_pol_sign_k_theta()
+
+Sign of the $k^\theta$ component of the 4-momentum.
+
+
+    DEVICEFUNC double geodesic_position_pol_sign_k_theta(geodesic *g, double P)
+
+Gives the orientation of the 4-momentum vector in the poloidal direction by returning the sign of $`k^\theta`$ component of the momentum vector.
+
+**Parameters**
+
+* **g**: geodesic data 
+* **P**: value of the position integral
+
+
+**Return value**
+
+Returns +1 or -1 or NAN in case of an error. 
+
+
+
+
+<br>
+
+---------
 
 #### geodesic_position_azm()
 
-Gives azimuthal (phi) angle at which the position integral gains value P.
+Azimuthal coordinate value at which the position integral gains value P.
 
 
     DEVICEFUNC double geodesic_position_azm(geodesic *g, double r, double m, double P)
 
-The value of azimuthal angle is assumed to be zero at infinity and the function gives the change of the angle between the point [r,m] and infinity.
+Given the value $`P`$ of the positional integral along the geodesic, the function computes the azimuthal coordinate for the position. The value of azimuthal angle is assumed to be zero at infinity and the function gives the change of the angle between the point [r,m] and infinity.
 
-Parameters: g - geodesic P - value of the position integral
+**Parameters**
 
-Returns: Phi angle in radians (can be more than 2pi) 
+* **g**: geodesic data 
+* **r**: radial coordinate of the current position 
+* **m**: poloidal coordinate of the current position 
+* **P**: value of the position integral
+
+
+**Return value**
+
+Difference between azimuthal angle at [r,m] and at infinity [radians]. The result can be larger than 2pi. 
+
+
+
+
+<br>
 
 ---------
-<br/>
 
 #### geodesic_timedelay()
 
-Gives travel-time (timedelay) between positions P1 and P2.
+Time delay (travel time) between positions P1 and P2.
 
 
-    DEVICEFUNC double geodesic_timedelay(geodesic *g, double P1, double P2)
+    DEVICEFUNC double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P2, double r2, double m2)
 
-Parameters: g - geodesic P1 - value of the position integral at point A P2 - value of the position integral at point B
+Gives time it takes the light to travel between two points along a geodesic. Returned value is always positive independent of the relative position of P1 and P2 along the geodesic.
 
-Returns: timedelay between position P1 and P1 (point A and B) 
+**Parameters**
+
+* **g**: geodesic data 
+* **P1**: value of the position integral at point A 
+* **r1**: value of the radial coordinate at point A; if zero, it is computed from P1 internally 
+* **m1**: value of the poloidal coordinate at point A ( $`m=cos(\theta)`$); if zero, it is computed from P1 internally 
+* **P2**: value of the position integral at point B 
+* **r2**: value of the radial coordinate at point B; if zero, it is computed from P2 internally 
+* **m2**: value of the poloidal coordinate at point B ( $`m=cos(\theta)`$); if zero, it is computed from P2 internally
+
+
+**Return value**
+
+Timedelay (positive) between position P1 and P2 (point A and B) or NAN in case of an error. 
+
+
+
+
+<br>
 
 ---------
-<br/>
+
+#### geodesic_dm_sign()
+
+Gives the sign of the derivative d(m)/d(P) at current position.
+
+
+    DEVICEFUNC double geodesic_dm_sign(geodesic *g, double P)
+
+Parameters: g - geodesic P - value of the position integral
+
+Returns: Sign of d(m)/d(P), i.e. +1 or -1. 
+
+<br>
+
+---------
+
+#### geodesic_momentum()
+
+Photon 4-momentum.
+
+
+    DEVICEFUNC void geodesic_momentum(geodesic *g, double P, double r, double m, double k[])
+
+Gives the 4-momentum of photons at given position along the geodesic. The function needs to know [r,m] coordinates of the point at the trajectory. If both r=m=0.0, the required values are computed from the value P of the position integral. To save these computations, value of [r,m] coordinates can be given to the function, if they have been computed before. Note: It is important to give the correct values of [r,m] corresponding to current position. The orientation of the momentum vector is always in the direction of increasing P, i.e. it points towards the radial turning point before it is reached and away from the radial turning point after it is reached.
+
+**Parameters**
+
+* **g**: - geodesic data 
+* **P**: - value of the position integral 
+* **r**: - radial coordinate (value or zero) 
+* **m**: - cosine of poloidal coordinate (value or zero) 
+* **k**: - 4-momentum vector (output)
+
+
+**Return value**
+
+Photon 4-momentum vector is returned in k[]. 
+
+
+
+
+<br>
+
+---------
 
 #### geodesic_find_midplane_crossing()
+
+Finds a crossing of the geodesic with the equatorial plane.
 
 
     DEVICEFUNC double geodesic_find_midplane_crossing(geodesic *g, int order)
 
+Calculates, where (if ever) the geodesic crosses the equatorial plane, and returns the value of the positional integral for that place. This is the fastest way to integrate over the equatorial plane. The positional integral can be converted to radius, which allows straightforward integration over the solid angle, for example 
+```math
+ F_\nu(E) = 1/D^2 \int I_\nu(E/g, r) d\alpha\,d\beta 
+```
+ where $`r = r(\alpha, \beta)`$, $`D`$ is distance and $`g`$ is g-factor.
+
+**Parameters**
+
+* **g**: geodesic data 
+* **order**: order of crossing; order=0 zero is the first crossing, higher orders may be reached by some geodesics that loop around the photon orbit
+
+
+**Return value**
+
+Value of the positional integral at the equatorial plane. 
+
+
+
+
+<br>
+
 ---------
-<br/>
 
 #### geodesic_follow()
+
+Makes a step along the geodesic.
 
 
     DEVICEFUNC void geodesic_follow(geodesic *g, double step, double *P, double *r, double *m, int *status)
 
----------
-<br/>
+Moves current position on the ray along the geodescis. On input, the function receives the current position integral value and radial and poloidal coordinate. It computes new values for P, r and m and shifts them to a new position along the geodesics by a given step.
 
-#### geodesic_s2i_int_R()
+This function is meant to be called in a cycle to follow the geodesics in a piecewise steps.
 
-Returns the value of position integral along geodesics at point r.
+**Parameters**
 
-
-    DEVICEFUNC double geodesic_s2i_int_R(geodesic *g, double r, int bpa)
-
-The function gives the value of the integral P =  1/{R} dr =  1/{} d This integral is integrated from infinity to the point, where the geodesic reaches radius r either before or behind its periastron. The value of the integral increases monotonicly from infinity along the geodesic and thus we use it for parametrizing it. Note it is not affine parameter, which would be other choice for parametrization.
-
-Parameters: g - geodesic r - radial coordinate [GM/c^2] bpa - position with respect to periastron (0=before periastron, 1=after periastron)
-
-Returns: Value of the position integral between infinity and given point. 
-
----------
-<br/>
-
-#### geodesic_s2i_inv_R()
-
-Returns the value of position integral along geodesics at point r.
+* **g**: geodesic data 
+* **step**: size of step to advance 
+* **P**: value of the positional integral (input and output) 
+* **r**: value of the radial coordinate (input and output) 
+* **m**: value of the poloidal coordinate (input and output; $`m=cos(theta)`$) 
+* **status**: status code; status=0 if ok, it get a non-zero value on an error 
 
 
-    DEVICEFUNC double geodesic_s2i_inv_R(geodesic *g, double r, int *bpa)
 
-The function gives the value of the integral P =  1/{R} dr =  1/{} d This integral is integrated from infinity to the point, where the geodesic reaches radius r either before or behind its periastron. The value of the integral increases monotonicly from infinity along the geodesic and thus we use it for parametrizing it. Note it is not affine parameter, which would be other choice for parametrization.
 
-Parameters: g - geodesic r - radial coordinate [GM/c^2] bpa - position with respect to periastron (0=before periastron, 1=after periastron)
-
-Returns: Value of the position integral between infinity and given point. 
+<br>
 
 ---------
-<br/>
 
-#### geodesic_s2i_int_T_eqplane()
+<br><br><br>
 
-
-    DEVICEFUNC double geodesic_s2i_int_T_eqplane(geodesic *g, int order, double *dk2dx)
-
----------
-<br/>
-
-#### geodesic_s2i_inv_T()
-
-
-    DEVICEFUNC double geodesic_s2i_inv_T(geodesic *g, double T, double *dk2dx)
-
----------
-<br/>
-
-#### geodesic_s2i_timedelay()
-
-
-    DEVICEFUNC double geodesic_s2i_timedelay(geodesic *g, double x, double *opt_r, double *opt_m)
-
----------
-<br/>
-
-#### geodesic_s2i_phi()
-
-
-    DEVICEFUNC double geodesic_s2i_phi(geodesic *g, double x, double *opt_r, double *opt_m)
-
----------
-<br/>
-
-#### geodesic_s2i_afp()
-
-
-    DEVICEFUNC double geodesic_s2i_afp(geodesic *g, double x, double *opt_r, double *opt_m)
-
----------
-<br/>
-
-#### geodesic_s2i_solution_eqplane()
-
-
-    DEVICEFUNC void geodesic_s2i_solution_eqplane(geodesic *g, int order, double *r, int *beyond_pa, double *phi, double *time_delay, int *status)
-
----------
-<br/>
-
-<br/><br/><br/>
+<br>
 
 ## <a name="sim5kerr"></a>sim5kerr.c - Basic spacetime routines
 
@@ -962,12 +1504,12 @@ Flat (Minkowski) spacetime metric.
 
     DEVICEFUNC void flat_metric(double r, double m, sim5metric *metric)
 
-Returns covariant Minkowski metric $\eta_\mu\nu$ in spherical coordinates (t,r,theta,phi).
+Returns covariant Minkowski metric $`\eta_\mu\nu`$ in spherical coordinates (t,r,theta,phi).
 
 **Parameters**
 
 * **r**: radial coordinate 
-* **m**: poloidal coordinate $m=\cos\theta$
+* **m**: poloidal coordinate $`m=\cos\theta`$
 
 
 **Return value**
@@ -977,8 +1519,9 @@ Metric components are returned in metric parameter.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### flat_metric_contravariant()
 
@@ -987,12 +1530,12 @@ Flat (Minkowski) spacetime metric (contravariant).
 
     DEVICEFUNC void flat_metric_contravariant(double r, double m, sim5metric *metric)
 
-Returns contravariant Minkowski metric $\eta^\mu\nu$ in spherical coordinates (t,r,theta,phi).
+Returns contravariant Minkowski metric $`\eta^\mu\nu`$ in spherical coordinates (t,r,theta,phi).
 
 **Parameters**
 
 * **r**: radial coordinate 
-* **m**: poloidal coordinate $m=\cos\theta$
+* **m**: poloidal coordinate $`m=\cos\theta`$
 
 
 **Return value**
@@ -1002,8 +1545,9 @@ Metric components are returned in metric parameter.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### kerr_metric()
 
@@ -1012,13 +1556,13 @@ Kerr spacetime metric.
 
     DEVICEFUNC void kerr_metric(double a, double r, double m, sim5metric *metric)
 
-Returns Kerr metric $g_\mu\nu$ in spherical coordinates (t,r,theta,phi).
+Returns Kerr metric $`g_\mu\nu`$ in spherical coordinates (t,r,theta,phi).
 
 **Parameters**
 
 * **a**: black hole spin 
 * **r**: radial coordinate 
-* **m**: poloidal coordinate $m=\cos\theta$
+* **m**: poloidal coordinate $`m=\cos\theta`$
 
 
 **Return value**
@@ -1028,8 +1572,9 @@ Metric components are returned in metric parameter.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### kerr_metric_contravariant()
 
@@ -1038,13 +1583,13 @@ Kerr spacetime metric (contravariant).
 
     DEVICEFUNC void kerr_metric_contravariant(double a, double r, double m, sim5metric *metric)
 
-Returns contravariant Kerr metric $g^\mu\nu$ in spherical coordinates (t,r,theta,phi).
+Returns contravariant Kerr metric $`g^\mu\nu`$ in spherical coordinates (t,r,theta,phi).
 
 **Parameters**
 
 * **a**: black hole spin 
 * **r**: radial coordinate 
-* **m**: poloidal coordinate $m=\cos\theta$
+* **m**: poloidal coordinate $`m=\cos\theta`$
 
 
 **Return value**
@@ -1054,8 +1599,9 @@ Metric components are returned in metric parameter.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### kerr_connection()
 
@@ -1072,7 +1618,7 @@ Returns a matrix of connection coefficients for Kerr metric.
 
 * **a**: black hole spin 
 * **r**: radial coordinate 
-* **m**: poloidal coordinate $m=\cos\theta$
+* **m**: poloidal coordinate $`m=\cos\theta`$
 
 
 **Return value**
@@ -1082,8 +1628,9 @@ Connection coeficients are returned in G parameter.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### flat_connection()
 
@@ -1099,7 +1646,7 @@ Returns a matrix of connection coefficients for Minkowski metric, i.e. Kerr metr
 **Parameters**
 
 * **r**: radial coordinate 
-* **m**: poloidal coordinate $m=\cos\theta$
+* **m**: poloidal coordinate $`m=\cos\theta`$
 
 
 **Return value**
@@ -1109,8 +1656,9 @@ Connection coeficients are returned in G parameter.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### Gamma()
 
@@ -1119,7 +1667,7 @@ Change of vector along a trajectory.
 
     DEVICEFUNC INLINE void Gamma(double G[4][4][4], double U[4], double V[4], double result[4])
 
-Returns product of summation `-G^i_(jk) U^j V^k`. This is useful for calculating parallel transport of vector `V` along a trajectory specified by tangent vector `U`, as it gives the derivative $dV/d\lambda$. (Note the definition of G tensor components in symmetric indices.)
+Returns product of summation `-G^i_(jk) U^j V^k`. This is useful for calculating parallel transport of vector `V` along a trajectory specified by tangent vector `U`, as it gives the derivative $`dV/d\lambda`$. (Note the definition of G tensor components in symmetric indices.)
 
 **Parameters**
 
@@ -1135,17 +1683,18 @@ Change of transported vector $dV/d\lambda$.
 
 
 
----------
-<br/>
+<br>
 
-#### vector()
+---------
+
+#### vector_set()
 
 Make a 4-vector.
 
 
-    DEVICEFUNC INLINE void vector(double x[4], double x0, double x1, double x2, double x3)
+    DEVICEFUNC INLINE void vector_set(double x[4], double x0, double x1, double x2, double x3)
 
-Returns a 4-vector that has given components (contravarient form $X^\mu$).
+Returns a 4-vector that has given components (contravarient form $`X^\mu`$).
 
 **Parameters**
 
@@ -1159,8 +1708,35 @@ Vector is returned in x parameter.
 
 
 
+<br>
+
 ---------
-<br/>
+
+#### vector_copy()
+
+Copy a 4-vector.
+
+
+    DEVICEFUNC INLINE void vector_copy(double src[4], double dst[4])
+
+Copies a 4-vector `src` into `dst`.
+
+**Parameters**
+
+* **src**: the source vector 
+* **dst**: the target vector
+
+
+**Return value**
+
+A copy of src vector in dst. 
+
+
+
+
+<br>
+
+---------
 
 #### vector_covariant()
 
@@ -1169,7 +1745,7 @@ Covariant version of a vector.
 
     DEVICEFUNC INLINE void vector_covariant(double V1[4], double V2[4], sim5metric *m)
 
-Converts a standard (contravariant) form of a vector to covariant form ( $X^\mu -> X_\mu$). Metric `m` can be NULL in which case flat metric is assumed.
+Converts a standard (contravariant) form of a vector to covariant form ( $`X^\mu -> X_\mu`$). Metric `m` can be NULL in which case flat metric is assumed.
 
 **Parameters**
 
@@ -1185,8 +1761,9 @@ Transformed vector is returned in V2 parameter.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### vector_norm()
 
@@ -1210,8 +1787,9 @@ Norm of a vector.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### vector_3norm()
 
@@ -1235,8 +1813,9 @@ Returns a 3-norm of a vector V (includes only 'spatial' components) in flat (Min
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### vector_multiply()
 
@@ -1260,8 +1839,9 @@ Modified vector V.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### vector_norm_to()
 
@@ -1270,7 +1850,7 @@ Normalizes a vector to given size.
 
     DEVICEFUNC INLINE void vector_norm_to(double V[4], double norm, sim5metric *m)
 
-Changes the vector components such that the norm of the vector becomes `|norm|`, i.e. $V.V = \rm{norm}$. The vector `V` must be space-like if norm>0, and it must be time-like if norm<0 (no checks are performed to enfoce that). Metric `m` can be NULL in which case flat metric is assumed. NOTE: vector cannot be null vector (V*V=0), nor norm can be zero; use vector_norm_to_null() in that case.
+Changes the vector components such that the norm of the vector becomes `|norm|`, i.e. $`V.V = \rm{norm}`$. The vector `V` must be space-like if norm>0, and it must be time-like if norm<0 (no checks are performed to enfoce that). Metric `m` can be NULL in which case flat metric is assumed. NOTE: vector cannot be null vector (V*V=0), nor norm can be zero; use vector_norm_to_null() in that case.
 
 **Parameters**
 
@@ -1286,8 +1866,9 @@ Changes the components of vector V.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### vector_norm_to_null()
 
@@ -1312,8 +1893,9 @@ Changes the components of vector V.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### dotprod()
 
@@ -1322,7 +1904,7 @@ Scalar product.
 
     DEVICEFUNC INLINE double dotprod(double V1[4], double V2[4], sim5metric *m)
 
-Calculates scalar product of two 4-vectors ( $U^\mu V^\nu g_{\mu\nu}$). NOTE: if metric is NULL, flat space metric is used
+Calculates scalar product of two 4-vectors ( $`U^\mu V^\nu g_{\mu\nu}`$). NOTE: if metric is NULL, flat space metric is used
 
 **Parameters**
 
@@ -1338,8 +1920,36 @@ The value of scalar product
 
 
 
+<br>
+
 ---------
-<br/>
+
+#### tetrad_general()
+
+Tetrad of an observer that is moving with a general 4-velocity U.
+
+
+    DEVICEFUNC void tetrad_general(sim5metric *m, double U[], sim5tetrad *t)
+
+Note: the orientation of theta-vector points in opposite direction than d/d(theta), i.e. at the equatorial plane the theta-vector points in upward direction. (based on Kulkarni+2011, Dexter2016 eq.36-43)
+
+**Parameters**
+
+* **m**: metric 
+* **U**: observer 4-velocity 
+* **t**: tetrad
+
+
+**Return value**
+
+Returns tetrad vectors in t. 
+
+
+
+
+<br>
+
+---------
 
 #### tetrad_zamo()
 
@@ -1363,8 +1973,9 @@ Returns tetrad vectors in t.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### tetrad_radial()
 
@@ -1391,8 +2002,9 @@ Returns tetrad vectors in t.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### tetrad_azimuthal()
 
@@ -1419,8 +2031,9 @@ Returns tetrad vectors in t.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### tetrad_surface()
 
@@ -1450,8 +2063,9 @@ Returns tetrad vectors in t.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### bl2on()
 
@@ -1478,8 +2092,9 @@ Local vector Vout.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### on2bl()
 
@@ -1506,8 +2121,9 @@ Coordinate vector Vout.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### r_bh()
 
@@ -1528,8 +2144,9 @@ Event horizon radius in [rg].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### r_ms()
 
@@ -1550,8 +2167,9 @@ Marginally stable orbit radius in [rg].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### r_mb()
 
@@ -1574,8 +2192,9 @@ Marginally bound orbit radius in [rg].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### r_ph()
 
@@ -1598,8 +2217,9 @@ Marginally bound orbit radius in [rg].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### OmegaK()
 
@@ -1621,8 +2241,9 @@ Angular frequency [Hz].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### ellK()
 
@@ -1644,8 +2265,9 @@ Keplerian specific angular momentum [g.u.].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### omega_r()
 
@@ -1667,8 +2289,9 @@ Angular velocity [Hz].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### omega_z()
 
@@ -1690,8 +2313,9 @@ Angular velocity [Hz].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### Omega_from_ell()
 
@@ -1713,8 +2337,9 @@ Angular frequency [Hz].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### ell_from_Omega()
 
@@ -1736,15 +2361,16 @@ Specific angular momentum [g.u.].
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### gfactorK()
 
 Redshift factor.
 
 
-    double gfactorK(double r, double a, double l)
+    DEVICEFUNC INLINE double gfactorK(double r, double a, double l)
 
 Relativistic correction to energy of photon that is emitted by fluid at Keplerian rotation in equatorial plane; includes Doppler effect and gravitational redshift.
 
@@ -1762,15 +2388,16 @@ Redshift factor.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### photon_momentum()
 
 Photon 4-momentum vector .
 
 
-    DEVICEFUNC void photon_momentum(double a, double r, double m, double l, double q2, double r_sign, double m_sign, double k[4])
+    DEVICEFUNC void photon_momentum(double a, double r, double m, double l, double q, double r_sign, double m_sign, double k[4])
 
 Returns photon 4-momentum vector k^ such that k*k=0 (null vector). The orientation of the resulting vector `k` is given by the signs of `r_sign` and `m_sign` parameters. See MTW; Rauch & Blandford (1994), Appendix A; Li+05
 
@@ -1780,7 +2407,7 @@ Returns photon 4-momentum vector k^ such that k*k=0 (null vector). The orientati
 * **r**: radial coordinate [rg] 
 * **m**: poloidal coordinate [cos(theta)] 
 * **l**: photon motion constant lambda 
-* **q2**: photon motion constant Q^2 (Carter's constant) 
+* **q**: photon motion constant Q (Carter's constant) 
 * **r_sign**: sign of k[1] component of resulting momentum vector 
 * **m_sign**: sign of k[2] component of resulting momentum vector 
 * **k**: resulting momentum vector (output)
@@ -1793,8 +2420,9 @@ Photon momentum vector k.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### photon_motion_constants()
 
@@ -1820,8 +2448,9 @@ Photon motion constants L and Q.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### photon_carter_const()
 
@@ -1843,61 +2472,9 @@ Carter's constants Q.
 
 
 
----------
-<br/>
-
-#### photon_wp_const()
-
-Walker-Penrose constant of null geodesic.
-
-
-    DEVICEFUNC sim5complex photon_wp_const(double k[4], double f[4], sim5metric *metric)
-
-Calculates components of Walker-Penrose (Walker&Penrose 1970) constant following Connors, Piran, Stark (1980): kappa_wp = kappa1 + I*kappa2 = (A1 - I*A2)*(r - I*a*cos(theta)) => kappa1 = +r*A1 - a*cos(theta)*A2; kappa2 = -r*A2 - a*cos(theta)*A1 returns kappa_wp = kappa1 + I*kappa2 Note the definition of kappa1 & kappa2, which is opposite to CPS(1980).
-
-**Parameters**
-
-* **k**: photon 4-momentum vector (satisfies k.k=0) 
-* **f**: photon polarization vector (satisfies f.k=0) 
-* **m**: metric
-
-
-**Return value**
-
-Complex Walker-Penrose constant. 
-
-
-
+<br>
 
 ---------
-<br/>
-
-#### photon_polarization_vector()
-
-Photon polarization vector.
-
-
-    DEVICEFUNC void photon_polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4])
-
-The returned polarization vector satisfies f.k=0 and f.f=0. Since f can be freely shifted by a multiple of k (f' = f + *k), it has a freedom in one compoment and it can always be set in such a way that its time-component is zero (f[0]=0). This routine returns f in such a form.
-
-**Parameters**
-
-* **k**: photon 4-momentum vector 
-* **wp**: complex Walker-Penrose constant 
-* **m**: metric 
-* **f**: photon polarization vector (output)
-
-
-**Return value**
-
-Photon polarization vector f. 
-
-
-
-
----------
-<br/>
 
 #### fourvelocity_zamo()
 
@@ -1919,8 +2496,9 @@ Photon polarization vector f.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### fourvelocity_azimuthal()
 
@@ -1943,8 +2521,9 @@ Photon polarization vector f.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### fourvelocity_radial()
 
@@ -1967,52 +2546,35 @@ Photon polarization vector f.
 
 
 
----------
-<br/>
-
-#### ortho_tetrad_U()
-
-
-    DEVICEFUNC void ortho_tetrad_U(double U[4], double g00, double g11, double g22, double g33, double g03, double e0[4], double e1[4], double e2[4], double e3[4])
+<br>
 
 ---------
-<br/>
-
-#### ortho_tetrad_U_phi_r_motion()
-
-
-    DEVICEFUNC void ortho_tetrad_U_phi_r_motion(double U[4], double g00, double g11, double g22, double g33, double g03, double e0[4], double e1[4], double e2[4], double e3[4])
-
----------
-<br/>
 
 #### fourvelocity_norm()
 
 
-    DEVICEFUNC INLINE double fourvelocity_norm(double U1, double U2, double U3, double g00, double g11, double g22, double g33, double g03)
+    DEVICEFUNC INLINE double fourvelocity_norm(double U1, double U2, double U3, sim5metric *m)
+
+<br>
 
 ---------
-<br/>
 
-#### kappa_pw()
-
-
-    DEVICEFUNC void kappa_pw(double a, double r, double m, double k[4], double f[4], double *kappa1, double *kappa2)
-
----------
-<br/>
-
-#### stokes_infty()
+#### fourvelocity()
 
 
-    DEVICEFUNC void stokes_infty(double a, double inc, double alpha, double beta, double kappa1, double kappa2, double *pol_angle)
+    DEVICEFUNC void fourvelocity(double U1, double U2, double U3, sim5metric *m, double U[])
+
+<br>
 
 ---------
-<br/>
 
-<br/><br/><br/>
+<br><br><br>
 
-## <a name="sim5math"></a>sim5math.c - 
+<br>
+
+## <a name="sim5math"></a>sim5math.c - Mathematical routines
+
+
 
 
 #### sim5round()
@@ -2020,100 +2582,259 @@ Photon polarization vector f.
 
     DEVICEFUNC INLINE long sim5round(double num)
 
+<br>
+
 ---------
-<br/>
 
 #### factorial()
 
 
     DEVICEFUNC INLINE long int factorial(long int n)
 
+<br>
+
 ---------
-<br/>
 
 #### reduce_angle_pi()
 
 
     DEVICEFUNC INLINE double reduce_angle_pi(double phi)
 
+<br>
+
 ---------
-<br/>
 
 #### reduce_angle_2pi()
 
 
     DEVICEFUNC INLINE double reduce_angle_2pi(double phi)
 
+<br>
+
 ---------
-<br/>
 
 #### ensure_range()
 
 
     DEVICEFUNC int ensure_range(double *val, double min, double max, double acc)
 
+<br>
+
 ---------
-<br/>
 
 #### sim5seed()
 
 
     DEVICEFUNC INLINE void sim5seed()
 
+<br>
+
 ---------
-<br/>
 
 #### sim5rand()
 
 
     DEVICEFUNC INLINE unsigned long long sim5rand()
 
+<br>
+
 ---------
-<br/>
 
 #### sim5urand()
 
 
     DEVICEFUNC INLINE double sim5urand()
 
+<br>
+
 ---------
-<br/>
 
 #### cartesian2spherical1()
 
 
     DEVICEFUNC void cartesian2spherical1(double x, double y, double z, double Vx, double Vy, double Vz, double *Vr, double *Vh, double *Vf)
 
+<br>
+
 ---------
-<br/>
 
 #### cartesian2spherical2()
 
 
     DEVICEFUNC void cartesian2spherical2(double cos_h, double sin_f, double cos_f, double Vx, double Vy, double Vz, double *Vr, double *Vh, double *Vf)
 
+<br>
+
 ---------
-<br/>
 
 #### makeComplex()
 
 
     DEVICEFUNC INLINE sim5complex makeComplex(double r, double i)
 
+<br>
+
 ---------
-<br/>
 
 #### nullComplex()
 
 
     DEVICEFUNC INLINE sim5complex nullComplex()
 
+<br>
+
 ---------
-<br/>
 
-<br/><br/><br/>
+<br><br><br>
 
-## <a name="sim5polyroots"></a>sim5polyroots.c - 
+<br>
+
+## <a name="sim5math"></a>sim5math.h - Mathematical macros
+
+
+
+Some useful mathematical macros. 
+
+
+| Name | Description | Value |
+|------|-------------|-------|
+| PI | PI | 3.14159265359 |
+| PI2 | 2*PI | 6.28318530718 |
+| PI4 | 4*PI | 12.5663706144 |
+| PI_half | PI/2 | 1.57079632679 |
+| sqr | quadratic power of a | ((a) * (a)) |
+| sqr2 | quadratic power of a | ((a) * (a)) |
+| sqr3 | cubic power of a | ((a) * (a) * (a)) |
+| sqr4 | quartic power of a | ((a) * (a) * (a) * (a)) |
+| sqrt3 | cubic root of a | cbrt(a) |
+| sqrt4 | quartic root of a | pow(a,0.25) |
+| max | maximum of two values | ((a) > (b) ? (a) : (b)) |
+| min | minimum of two values | ((a) < (b) ? (a) : (b)) |
+| minmax | values within limits | min(vmax,max(val,vmin)) |
+| odd | is odd number | ((a%2==1)?1:0) |
+| sign | positive or negative | ((a) >= 0.0 ? (+1.0) : (-1.0)) |
+| deg2rad | convert degrees to radians | ((a)/180.0*M_PI) |
+| rad2deg | convert radians to degrees | ((a)*180.0/M_PI) |
+| EE | power of 10 | pow(10.0,a) |
+| ave | weighted average of two values | ((1.0-(w))*(a) + (w)*(b)) |
+| logave | weighted logarithmic average of two values | (exp((1.0-(w))*log(a) + (w)*log(b))) |
+| inrange | value in range | (((a)>=(min))&&((a)<=(max))) |
+| rand | integer random number (long long int) | sim5rand() |
+| urand | random number from 0 to 1 (double) | sim5urand() |
+| ComplexI | complex unit (sqrt(-1)) | _Complex_I |
+<br><br><br>
+
+<br>
+
+## <a name="sim5polarization"></a>sim5polarization.c - Polarization properties of radiation
+
+
+
+These routines help to calculate the change in polarization properties of radiation as it passes through a curved spacetime.
+
+The orientation of the polarization vector (and thus the polarization angle) changes along the geodesic due to parallel transport. Knowing the inital direction of the vector, its orientation can be calculated at any place along the geodesic including the at-infinity limit. 
+
+
+#### polarization_vector()
+
+Photon polarization vector.
+
+
+    DEVICEFUNC void polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4])
+
+The returned polarization vector satisfies f.k=0 and f.f=1. Since f can be freely shifted by a multiple of k (f' = f + *k), it has a freedom in one compoment and it can always be set in such a way that its time-component is zero (f[0]=0). This routine returns f in such a form.
+
+**Parameters**
+
+* **k**: photon 4-momentum vector 
+* **wp**: complex Walker-Penrose constant 
+* **m**: metric 
+* **f**: photon polarization vector (output)
+
+
+**Return value**
+
+Photon polarization vector f. 
+
+
+
+
+<br>
+
+---------
+
+#### polarization_constant()
+
+Walker-Penrose constant for a null geodesic.
+
+
+    DEVICEFUNC sim5complex polarization_constant(double k[4], double f[4], sim5metric *metric)
+
+Calculates components of Walker-Penrose (Walker&Penrose 1970) constant following Dexter(1916). returns Note: K1 and K2 relate to Connors,Piran,Stark(1980) kappa1=K2, kappa2=K1.
+
+**Parameters**
+
+* **k**: photon 4-momentum vector (satisfies k.k=0) 
+* **f**: photon polarization vector (satisfies f.k=0) 
+* **metric**: local metric
+
+
+**Return value**
+
+Complex Walker-Penrose constant $K_{wp} = K1 + I*K2$. 
+
+
+
+
+<br>
+
+---------
+
+#### polarization_constant_infinity()
+
+Walker-Penrose constant for a null geodesic.
+
+
+    DEVICEFUNC sim5complex polarization_constant_infinity(double a, double alpha, double beta, double incl)
+
+Calculates components of Walker-Penrose (Walker&Penrose 1970) constant following Dexter(1916). returns Note: K1 and K2 relate to Connors,Piran,Stark(1980) kappa1=K2, kappa2=K1.
+
+**Parameters**
+
+* **k**: photon 4-momentum vector (satisfies k.k=0) 
+* **f**: photon polarization vector (satisfies f.k=0) 
+* **metric**: local metric
+
+
+**Return value**
+
+Complex Walker-Penrose constant $K_{wp} = K1 + I*K2$. 
+
+
+
+
+<br>
+
+---------
+
+#### polarization_angle_rotation()
+
+
+    DEVICEFUNC double polarization_angle_rotation(double a, double inc, double alpha, double beta, sim5complex kappa)
+
+<br>
+
+---------
+
+<br><br><br>
+
+<br>
+
+## <a name="sim5polyroots"></a>sim5polyroots.c - Polynomial roots
+
+
+
+These routines give roots of quadratic, cubic and quartic equations calculated using analytical expressions. 
 
 
 #### quadratic_eq()
@@ -2123,7 +2844,7 @@ Roots of qudratic equation.
 
     DEVICEFUNC int quadratic_eq(double pr, double pi, double qr, double qi, double zr[2], double zi[2])
 
-Calculates the roots of z^2 + p z + q = 0 and the number of real roots, where p and q are complex numbers. The solution can have 2 real roots, 1 real and 1 complex roots, or 2 complex roots. The function uses the algorithm recommended in "Numerical Recipes".
+Calculates the roots of $`z^2 + p z + q = 0`$ and the number of real roots, where p and q are complex numbers. The solution can have 2 real roots, 1 real and 1 complex roots, or 2 complex roots. The function uses the algorithm recommended in "Numerical Recipes".
 
 **Parameters**
 
@@ -2132,7 +2853,7 @@ Calculates the roots of z^2 + p z + q = 0 and the number of real roots, where p 
 * **qr**: Re(q) 
 * **qi**: Im(q) 
 * **zr**: array to store real parts of quadratic roots 
-* **zr**: array to store imaginary parts of quadratic roots
+* **zi**: array to store imaginary parts of quadratic roots
 
 
 **Return value**
@@ -2142,8 +2863,9 @@ Number of real roots, plus the roots in zr and zi.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### cubic_eq()
 
@@ -2152,7 +2874,7 @@ Roots of cubic equation.
 
     DEVICEFUNC int cubic_eq(double p, double q, double r, double zr[3], double zi[3])
 
-Calculates the roots of z^3 + p z^2 + q z + r = 0 and the number of real roots, where p, q, r are real numbers.
+Calculates the roots of $`z^3 + p z^2 + q z + r = 0`$ and the number of real roots, where p, q, r are real numbers.
 
 **Parameters**
 
@@ -2160,50 +2882,19 @@ Calculates the roots of z^3 + p z^2 + q z + r = 0 and the number of real roots, 
 * **q**: coeficient q 
 * **r**: coeficient r 
 * **zr**: array to store real parts of cubic roots 
-* **zr**: array to store imaginary parts of cubic roots
+* **zi**: array to store imaginary parts of cubic roots
 
 
 **Return value**
 
-Number of real roots, plus the roots in zr and zi. 
+Number of real roots. The actual roots are returned in zr[] and zi[] arrays. 
 
 
 
 
----------
-<br/>
-
-#### sort_roots_re()
-
-
-    DEVICEFUNC void sort_roots_re(double *r1, double *r2, double *r3, double *r4)
+<br>
 
 ---------
-<br/>
-
-#### sort_mix()
-
-
-    DEVICEFUNC void sort_mix(double *r1, double *r2, int *s)
-
----------
-<br/>
-
-#### sort_mix2()
-
-
-    DEVICEFUNC void sort_mix2(double *r1, double *r2, int *s)
-
----------
-<br/>
-
-#### sort_roots()
-
-
-    DEVICEFUNC void sort_roots(int *s, sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5complex *z4)
-
----------
-<br/>
 
 #### quartic_eq()
 
@@ -2212,7 +2903,7 @@ Roots of quartic equation.
 
     DEVICEFUNC int quartic_eq(double a3, double a2, double a1, double a0, double zr[4], double zi[4])
 
-Calculates the roots of z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 and the number of real roots, where a0, a1, a2, a3 are real numbers.
+Calculates the roots of $` z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 `$ and the number of real roots, where a0, a1, a2, a3 are real numbers.
 
 **Parameters**
 
@@ -2221,7 +2912,7 @@ Calculates the roots of z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 and the number of r
 * **a1**: coeficient a1 
 * **a0**: coeficient a0 
 * **zr**: array to store real parts of cubic roots 
-* **zr**: array to store imaginary parts of cubic roots
+* **zi**: array to store imaginary parts of cubic roots
 
 
 **Return value**
@@ -2231,8 +2922,9 @@ Number of real roots, plus the roots in zr and zi.
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### quartic_eq_c()
 
@@ -2249,7 +2941,7 @@ Calculates the roots of z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 and the number of r
 * **a2**: coeficient a2 
 * **a1**: coeficient a1 
 * **a0**: coeficient a0 
-* **nrr**: number or real roots (output) 
+* **nr**: number or real roots (output) 
 * **z1**: first root (output) 
 * **z2**: second root (output) 
 * **z3**: third root (output) 
@@ -2263,10 +2955,13 @@ Number of real roots and the roots in nrr and z1...z4.
 
 
 
----------
-<br/>
+<br>
 
-<br/><br/><br/>
+---------
+
+<br><br><br>
+
+<br>
 
 ## <a name="sim5radiation"></a>sim5radiation.c - Radiative processes routines
 
@@ -2299,17 +2994,18 @@ specific intensity in units [erg cm^-2 s^-1 keV^-1 srad^-1]
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### blackbody()
 
 Specific radiance of black-body radiation.
 
 
-    void blackbody(double T, double hardf, double cos_mu, double E[], double Iv[], int N)
+    DEVICEFUNC void blackbody(double T, double hardf, double cos_mu, double E[], double Iv[], int N)
 
-Gives specific intensity $\frac{dE}{dt dA d\Omega dE}$ at energy `E` of radiation of a black body of temperatute `T`. Assumes either isotropic or limb-darkened emission and a color correction of effective temperature by factor `hardf`.
+Gives specific intensity $`\frac{dE}{dt dA d\Omega dE}`$ at energy `E` of radiation of a black body of temperatute `T`. Assumes either isotropic or limb-darkened emission and a color correction of effective temperature by factor `hardf`.
 
 **Parameters**
 
@@ -2328,8 +3024,9 @@ Iv[] array contains specific intensities for given energies
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### blackbody_photons()
 
@@ -2338,7 +3035,7 @@ Specific photon intensity of black-body radiation.
 
     DEVICEFUNC INLINE double blackbody_photons(double T, double hardf, double cos_mu, double E)
 
-Same as `blackbody_Iv()` function, except it gives specific photon intensity $\frac{dN}{dt dA d\Omega dE}$.
+Same as `blackbody_Iv()` function, except it gives specific photon intensity $`\frac{dN}{dt dA d\Omega dE}`$.
 
 **Return value**
 
@@ -2347,17 +3044,18 @@ specific intensity in units [photons cm^-2 s^-1 keV^-1 srad^-1]
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### blackbody_photons_total()
 
 Number of photons that are emitted by a black-body surface.
 
 
-    DEVICEFUNC double blackbody_photons_total(double T, double hardf, double cos_mu)
+    DEVICEFUNC double blackbody_photons_total(double T, double hardf)
 
-Gives total number of photons $\frac{dN}{dt dA d\Omega}$ of all energies that are emitted form a unit surface of a black body of temperatute `T` into a unit solid angle. Assumes either isotropic or limb-darkened emission and a color correction of effective temperature by factor `hardf`.
+Gives total number of photons $`\frac{dN}{dt dA d\Omega}`$ of all energies that are emitted form a unit surface of a black body of temperatute `T` into a unit solid angle. Assumes either isotropic or limb-darkened emission and a color correction of effective temperature by factor `hardf`.
 
 **Parameters**
 
@@ -2373,8 +3071,9 @@ number of photons [photons cm^-2 s^-1 srad^-1]
 
 
 
+<br>
+
 ---------
-<br/>
 
 #### blackbody_photon_energy_random()
 
@@ -2397,10 +3096,13 @@ photon energy in [keV]
 
 
 
----------
-<br/>
+<br>
 
-<br/><br/><br/>
+---------
+
+<br><br><br>
+
+<br>
 
 ## <a name="sim5raytrace"></a>sim5raytrace.c - Raytracing
 
@@ -2417,7 +3119,7 @@ Provides routines for step-wise raytracing.
 Raytracing with step-wise null-geodesic integration.
 
 
-    DEVICEFUNC void raytrace_prepare(double bh_spin, double x[4], double k[4], double f[4], double presision_factor, int options, raytrace_data *rtd)
+    DEVICEFUNC void raytrace_prepare(double bh_spin, double x[4], double k[4], double presision_factor, int options, raytrace_data *rtd)
 
 Makes one step along the geodesic that is tangent to `k` and updates input vectors with new values. The integration method follows Dolence+2009 (http://adsabs.harvard.edu/abs/2009ApJS..184..387D).
 
@@ -2438,47 +3140,16 @@ Numerical precision of integration is driven by the precision_factor modifier an
 
 
 
----------
-<br/>
-
-#### raytrace()
-
-Raytracing with step-wise null-geodesic integration.
-
-
-    DEVICEFUNC void raytrace(double x[4], double k[4], double f[4], double *step, raytrace_data *rtd)
-
-Makes one step along the geodesic that is tangent to `k` and updates input vectors with new values. The integration method follows Dolence+2009 (http://adsabs.harvard.edu/abs/2009ApJS..184..387D).
-
-The routine automatically controls size of the step based on curvature and required precission. On each call to raytrace() the routine takes a step size, which is smaller of the two: the internally chosen step size and step size that is passed on input in `step`.
-
-Numerical precision is driven by the precision_factor modifier [see raytrace_prepare()]; rtd->error gives the error in the current step and it should be bellow raytrace_max_error*1e-2; so it is adviceable to check rtd->error continuously after each step and stop integration when the error goes above ~1e-3; at the end of integration one should then check relative difference in Carter's constant with `raytrace_error()`.
-
-**Parameters**
-
-* **x**: position vector 
-* **k**: direction vector (photon 4-momentum) 
-* **f**: polarization vector (optional, can be NULL) 
-* **step**: on input gives maximal step that the routine can take [GM/c2]; on output gives size of step that has actually been taken 
-* **rtd**: raytracing data
-
-
-**Return value**
-
-Position, direction and polarization (if not null) vectors and step size are updated, rtd has the relative error. 
-
-
-
+<br>
 
 ---------
-<br/>
 
 #### raytrace_error()
 
 Raytracing error.
 
 
-    DEVICEFUNC double raytrace_error(double x[4], double k[4], double f[4], raytrace_data *rtd)
+    DEVICEFUNC double raytrace_error(double x[4], double k[4], raytrace_data *rtd)
 
 Gives relative error in raytracing in terms of relative difference of Carter's constant. Useful for checking precission of integration.
 
@@ -2497,26 +3168,29 @@ Relative error in raytracing.
 
 
 
----------
-<br/>
+<br>
 
-<br/><br/><br/>
+---------
+
+<br><br><br>
+
+<br>
 
 ## <a name="sim5roots"></a>sim5roots.c - Root finding
 
 
 
-Provides routines for ffinding roots of functions. 
+Routines for finding roots of functions numericaly. 
 
 
 #### rtbis()
 
-Root finding.
+Root finding by bisection.
 
 
     long rtbis(double x1, double x2, double xacc, double(*fx)(double), double *result)
 
-Finds root of a function on an interval. Using bisection method, finds the root of a function `fx` that is known to lie between `x1` and `x2`. The root, returned as `result`, will be refined until its accuracy is +/- xacc.
+Finds root of a function on an interval. Using bisection method, it finds the root of a function `fx` that is known to lie between `x1` and `x2`. The root, returned as `result`, will be refined until its accuracy is +/- xacc.
 
 **Parameters**
 
@@ -2533,12 +3207,17 @@ Returns 1 if OK and the root position in result, 0 if error.
 
 
 
+<br>
+
 ---------
-<br/>
 
-<br/><br/><br/>
+<br><br><br>
 
-## <a name="sim5utils"></a>sim5utils.c - 
+<br>
+
+## <a name="sim5utils"></a>sim5utils.c - Utility routines
+
+
 
 
 | Name | Description | Value |
@@ -2551,192 +3230,225 @@ Returns 1 if OK and the root position in result, 0 if error.
 
     void gprintf(FILE *file, const char *templatex,...)
 
+<br>
+
 ---------
-<br/>
 
 #### warning()
 
 
     void warning(const char *templatex,...)
 
+<br>
+
 ---------
-<br/>
 
 #### error()
 
 
     void error(const char *templatex,...)
 
+<br>
+
 ---------
-<br/>
 
 #### sort_array_d_compare_func()
 
 
     int sort_array_d_compare_func(const void *x, const void *y)
 
+<br>
+
 ---------
-<br/>
 
 #### sort_array()
 
 
     void sort_array(double *array, int N)
 
+<br>
+
 ---------
-<br/>
 
 #### sort_array_f_compare_func()
 
 
     int sort_array_f_compare_func(const void *x, const void *y)
 
+<br>
+
 ---------
-<br/>
 
 #### sort_array_f()
 
 
     void sort_array_f(float *array, int N)
 
+<br>
+
 ---------
-<br/>
 
 #### array_alloc()
 
 
     void * array_alloc(size_t capacity, size_t element_size)
 
+<br>
+
 ---------
-<br/>
 
 #### array_free()
 
 
     void array_free(void *ptr)
 
+<br>
+
 ---------
-<br/>
 
 #### array_realloc()
 
 
     void * array_realloc(void *array, size_t new_capacity)
 
+<br>
+
 ---------
-<br/>
 
 #### array_count()
 
 
     long array_count(void *array)
 
+<br>
+
 ---------
-<br/>
 
 #### array_capa()
 
 
     long array_capa(void *array)
 
+<br>
+
 ---------
-<br/>
 
 #### array_esize()
 
 
     size_t array_esize(void *array)
 
+<br>
+
 ---------
-<br/>
 
 #### array_push()
 
 
     void array_push(void **array_ptr, const void *data)
 
+<br>
+
 ---------
-<br/>
 
 #### array_push_int()
 
 
     void array_push_int(void **array_ptr, const int data)
 
+<br>
+
 ---------
-<br/>
 
 #### array_push_long()
 
 
     void array_push_long(void **array_ptr, const long data)
 
+<br>
+
 ---------
-<br/>
+
+#### array_push_float()
+
+
+    void array_push_float(void **array_ptr, const float data)
+
+<br>
+
+---------
 
 #### array_push_double()
 
 
     void array_push_double(void **array_ptr, const double data)
 
+<br>
+
 ---------
-<br/>
 
 #### array_exists()
 
 
     int array_exists(void *array, const void *data)
 
+<br>
+
 ---------
-<br/>
 
 #### array_push_if_not_exists()
 
 
     void array_push_if_not_exists(void **array_ptr, const void *data)
 
+<br>
+
 ---------
-<br/>
 
 #### array_reverse()
 
 
     void array_reverse(void *array)
 
+<br>
+
 ---------
-<br/>
 
 #### key_value_get()
 
 
     char * key_value_get(const char *string, const char *key)
 
+<br>
+
 ---------
-<br/>
 
 #### split()
 
 
     char ** split(char *string, char *delim)
 
+<br>
+
 ---------
-<br/>
 
 #### getlinecount()
 
 
     long getlinecount(FILE *f)
 
+<br>
+
 ---------
-<br/>
 
 #### backtrace()
 
 
     void backtrace()
 
----------
-<br/>
+<br>
 
-<br/><br/><br/>
+---------
+
+<br><br><br>
 

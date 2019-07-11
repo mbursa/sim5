@@ -1,21 +1,13 @@
-/*
-#include "sim5config.h"
-#ifndef CUDA
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <math.h>
-//#include <complex.h>
-#include "sim5math.h"
-#include "sim5polyroots.h"
-#endif
-*/
+//! \file sim5polyroots.c
+//! Polynomial roots.
+//! 
+//! These routines give roots of quadratic, cubic and quartic equations calculated using analytical expressions.
+
 
 DEVICEFUNC
 int quadratic_eq(double pr, double pi, double qr, double qi, double zr[2], double zi[2])
 //! Roots of qudratic equation.
-//! Calculates the roots of z^2 + p z + q = 0 and the number of real roots, where p and q are complex numbers. 
+//! Calculates the roots of \f$z^2 + p z + q = 0\f$ and the number of real roots, where p and q are complex numbers. 
 //! The solution can have 2 real roots, 1 real and 1 complex roots, or 2 complex roots. 
 //! The function uses the algorithm recommended in "Numerical Recipes". 
 //! 
@@ -24,7 +16,7 @@ int quadratic_eq(double pr, double pi, double qr, double qi, double zr[2], doubl
 //! @param qr Re(q)
 //! @param qi Im(q)
 //! @param zr array to store real parts of quadratic roots
-//! @param zr array to store imaginary parts of quadratic roots
+//! @param zi array to store imaginary parts of quadratic roots
 //!
 //! @result Number of real roots, plus the roots in `zr` and `zi`.
 {
@@ -100,15 +92,15 @@ int quadratic_eq(double pr, double pi, double qr, double qi, double zr[2], doubl
 DEVICEFUNC
 int cubic_eq(double p, double q, double r, double zr[3], double zi[3])
 //! Roots of cubic equation.
-//! Calculates the roots of z^3 + p z^2 + q z + r = 0 and the number of real roots, where p, q, r are real numbers. 
+//! Calculates the roots of \f$z^3 + p z^2 + q z + r = 0\f$ and the number of real roots, where p, q, r are real numbers. 
 //! 
 //! @param p coeficient p
 //! @param q coeficient q
 //! @param r coeficient r
 //! @param zr array to store real parts of cubic roots
-//! @param zr array to store imaginary parts of cubic roots
+//! @param zi array to store imaginary parts of cubic roots
 //!
-//! @result Number of real roots, plus the roots in `zr` and `zi`.
+//! @result Number of real roots. The actual roots are returned in `zr[]` and `zi[]` arrays.
 {
   double x1, x2, x3, y1, y2, y3;
   double theta, aa, bb, qq, rr;
@@ -167,6 +159,7 @@ int cubic_eq(double p, double q, double r, double zr[3], double zi[3])
 }
 
 
+//! \cond SKIP
 DEVICEFUNC
 void sort_roots_re(double *r1, double *r2, double *r3, double *r4)
 // sort to the order r1 > r2 > r3 > r4 
@@ -179,16 +172,19 @@ void sort_roots_re(double *r1, double *r2, double *r3, double *r4)
 	if (*r4 > *r2) { t=*r2; *r2=*r4; *r4=t; }
 	if (*r4 > *r3) { t=*r3; *r3=*r4; *r4=t; }
 }
+//! \endcond
 
 
+
+//! \cond SKIP
+DEVICEFUNC
+void sort_mix(double *r1, double *r2, int *s)
 // Sort real and complex numbers in the following way: 1) separate complex 
 // numbers and real numbers, putting complex ones ahead of real ones; 2) sort 
 // the real numbers in an descent order. r1=Re(r), r2=Im(r), s is the beginning
 // index for real roots. E.g., for four numbers 2, 1+3i, 1-3i, -4, the subroutine
 // sort_mix gives 1+3i, 1-3i, 2, -4 as output numbers, and s = 2. [Note, s 
 // starts from 0.]
-DEVICEFUNC
-void sort_mix(double *r1, double *r2, int *s)
 {
   const int N=4;
   double rr1[N], rr2[N], tmp;
@@ -225,16 +221,18 @@ void sort_mix(double *r1, double *r2, int *s)
       }
     }
 }
+//! \endcond
 
 
+//! \cond SKIP
+DEVICEFUNC
+void sort_mix2(double *r1, double *r2, int *s)
 // Sort real and complex numbers in the following way: 1) separate complex 
 // numbers and real numbers, putting real ones ahead of complex ones; 2) sort 
 // the real numbers in an descent order. r1=Re(r), r2=Im(r), s is the beginning
 // index for complex roots. E.g., for four numbers 2, 1+3i, 1-3i, -4, the subroutine
 // sort_mix gives 2, -4, 1+3i, 1-3i as output numbers, and s = 2. [Note, s 
 // starts from 0.]
-DEVICEFUNC
-void sort_mix2(double *r1, double *r2, int *s)
 {
   const int N=4;
   double rr1[N], rr2[N], tmp;
@@ -271,11 +269,12 @@ void sort_mix2(double *r1, double *r2, int *s)
       }
     }
 }
+//! \endcond
 
 
 
+//! \cond SKIP
 DEVICEFUNC
-//void sort_roots(int *s, double complex *z1, double complex *z2, double complex *z3, double complex *z4)
 void sort_roots(int *s, sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5complex *z4)
 // s returns no. of real roots
 {
@@ -323,20 +322,22 @@ void sort_roots(int *s, sim5complex *z1, sim5complex *z2, sim5complex *z3, sim5c
     *z3 = rr2[2];
     *z4 = rr2[3];
 }
+//! \endcond
 
 
 
 DEVICEFUNC
 int quartic_eq(double a3, double a2, double a1, double a0, double zr[4], double zi[4])
 //! Roots of quartic equation.
-//! Calculates the roots of z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 and the number of real roots, where a0, a1, a2, a3 are real numbers. 
+//! Calculates the roots of \f$ z^4+ a3 z^3 + a2 z^2 + a1 z + a0 = 0 \f$ and the number of real roots, 
+//! where a0, a1, a2, a3 are real numbers. 
 //! 
 //! @param a3 coeficient a3
 //! @param a2 coeficient a2
 //! @param a1 coeficient a1
 //! @param a0 coeficient a0
 //! @param zr array to store real parts of cubic roots
-//! @param zr array to store imaginary parts of cubic roots
+//! @param zi array to store imaginary parts of cubic roots
 //!
 //! @result Number of real roots, plus the roots in `zr` and `zi`.
 {
@@ -459,7 +460,7 @@ void quartic_eq_c(
 //! @param a2 coeficient a2
 //! @param a1 coeficient a1
 //! @param a0 coeficient a0
-//! @param nrr number or real roots (output)
+//! @param nr number or real roots (output)
 //! @param z1 first root (output)
 //! @param z2 second root (output)
 //! @param z3 third root (output)
@@ -475,7 +476,6 @@ void quartic_eq_c(
 	*z3 = makeComplex(zr[2], zi[2]);
 	*z4 = makeComplex(zr[3], zi[3]);
 }
-
 
 
 

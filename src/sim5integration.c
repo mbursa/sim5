@@ -10,7 +10,19 @@
 //************************************************************************
 
 
+//! \file sim5integration.c
+//! Numerical integration
+//! 
+//! Routines for simple numerical integrations of functions.
 
+
+//! \cond SKIP
+#define NMAX_TRAPEZOID 23
+#define NMAX_SIMPSON 23
+//! \endcond
+
+
+//! \cond SKIP
 DEVICEFUNC 
 static void integrate_trapezoid_rule(double(*f)(double), double a, double b, int n, double *s)
 //! Integration core routine based on trapezoid rule
@@ -40,22 +52,30 @@ static void integrate_trapezoid_rule(double(*f)(double), double a, double b, int
         *s = 0.5 * (*s + del * sum);
     }
 }
+//! \endcond
 
 
-#define NMAX 23
 DEVICEFUNC 
 double integrate_trapezoid(double(*f)(double), double a, double b, double acc)
-//! Integration of function using trapezoid rule
-//! - computes the integral \int^a_b f(x) dx in a series of refinement steps until
-//!   relative accuracy is better that <acc> or the maximum predefined number of steps is reached
-//! - accuracy should not be increased beyond ~10^-6 as roundoff errors start to 
-//!   accumulate if too many steps are taken
+//! Integral of a function using trapezoid rule.
+//! Computes the integral \f$ \int^a_b f(x) dx \f$ in a series of refinement steps until
+//! the relative accuracy is better than requested or the maximum predefined number of steps is reached.
+//!
+//! Note: Accuracy should not be increased beyond ~10^-6 as roundoff errors start to accumulate 
+//! if too many steps are taken.
+//!
+//! @param f pointer fo a function that is to be integrated
+//! @param a interval of integration lower limit
+//! @param b interval of integration upper limit
+//! @param acc relative accuracy of integration
+//!
+//! @result Integral of the function over the interval [a,b].
 {
     int n;
     double s = 0.0;
     double olds = DBL_MIN;  // any number that is unlikely to be the average of the function at its endpoints is ok
 
-    for (n=1; n<=NMAX; n++) {
+    for (n=1; n<=NMAX_TRAPEZOID; n++) {
         integrate_trapezoid_rule(f, a, b, n, &s);
         if (n > 3) {        // avoid spurious early convergence
             if ((fabs(s-olds) < acc*abs(olds)) || ((s==0.) && (olds==0.))) return s;
@@ -69,27 +89,33 @@ double integrate_trapezoid(double(*f)(double), double a, double b, double acc)
 
     return s;
 }
-#undef NMAX
 
 
 
-#define NMAX 23
 DEVICEFUNC 
 double integrate_simpson(double (*f)(double), double a, double b, double acc)
-//! Integration of function using simpson rule
-//! - computes the integral \int^a_b f(x) dx in a series of refinement steps until
-//!   relative accuracy is better that <acc> or the maximum predefined number of steps is reached
-//! - simpson rule is generally more efficient than trapezoid rule when the function to be integrated
-//!   has a finite 4th derivative (continuous 3rd  derivative)
-//! - accuracy should not be increased beyond ~10^-6 as roundoff errors start to 
-//!   accumulate if too many steps are taken
+//! Integral of a function using Simpson rule.
+//! Computes the integral \f$ \int^a_b f(x) dx \f$ in a series of refinement steps until
+//! the relative accuracy is better than requested or the maximum predefined number of steps is reached.
+//! Simpson rule is generally more efficient than trapezoid rule when the function to be integrated
+//! has a finite 4th derivative (continuous 3rd  derivative).
+//!
+//! Note: Accuracy should not be increased beyond ~10^-6 as roundoff errors start to accumulate 
+//! if too many steps are taken.
+//!
+//! @param f pointer fo a function that is to be integrated
+//! @param a interval of integration lower limit
+//! @param b interval of integration upper limit
+//! @param acc relative accuracy of integration
+//!
+//! @result Integral of the function over the interval [a,b].
 {
     int n;
     double s, st=0.0, ost, os;
 
     ost = os = -1.e50;
 
-    for (n=1; n<=NMAX; n++){
+    for (n=1; n<=NMAX_SIMPSON; n++){
         integrate_trapezoid_rule(f, a, b, n, &st);
         s = (4.*st - ost) / 3.;
         if (n > 3) {        // avoid spurious early convergence
@@ -105,11 +131,11 @@ double integrate_simpson(double (*f)(double), double a, double b, double acc)
 
     return s;
 }
-#undef NMAX
 
 
 //-------------------------------------------------------------------------------------
 
+//! \cond SKIP
 double gammln(double xx)
 // natural log of the complete Gamma function.
 // returns the log of the gamma function for X
@@ -129,26 +155,34 @@ double gammln(double xx)
   }
   return -tmp+log(2.50662827465*ser);
 }
+//! \endcond
 
 
 
 DEVICEFUNC 
 void gauleg(double x1, double x2, double x[], double w[], int n)
-// Computes weights and abscissa for Gauss-Legendre quadrature.
-//
-// Given the lower and upper limits of integration x1 and x2, and given n, this
-// routine returns arrays x[1..n] and w[1..n] of length n, containing the abscissas
-// and weights of the Gauss-Legendre n-point quadrature formula.
-// n = number of quadrature points.
-// x = abscissa
-// w = weights
-//
-// To integrate a function f(x) over the interval [x1,x2], do simple summation:
-//     gauleg(x1, x2, x, w, n)
-//     integral = sum(f(x)*w, 1..n);
-// Using n points, it will integrate a (2*n-1)'th degree polynomial exactly.
-// If the function f(x) is well approximated by a polynomial, the integral
-// will be very accurate.
+//! Gauss-Legendre quadrature.
+//! Given the lower and upper limits 
+//! of integration \f$x_1\f$ and \f$x_2\f$, and given \f$n\f$ points, this routine returns arrays 
+//! \f$x[n]\f$ and \f$w[n]\f$ of length \f$n\f$, containing the abscissas and weights of 
+//! the Gauss-Legendre n-point quadrature formula.
+//!
+//! To integrate a function \f$f(x)\f$ over the interval \f$[x_1,x_2]\f$, just do a simple summation:
+//!
+//!     gauleg(x1, x2, x, w, n)
+//!     integral = sum(i=0, i<n-1, f(x[i])*w[i])
+//!
+//! Using n points, the method exactly integrates polynomials up to (2*n-1)'th degree.
+//! If the function \f$f(x)\f$ is well approximated by a polynomial, the integral
+//! will be very accurate.
+//!
+//! @param x1 interval of integration lower limit
+//! @param x2 interval of integration upper limit
+//! @param x pointer to an array where abscissas should be written
+//! @param w pointer to an array where waights should be written
+//! @param n number of quandrature points and also the minimal dimensions of x[] and w[] arrays
+//!
+//! @result Abscissas and weights are returned in x[] and w[] arrays.
 {
     const double EPS = 3.0e-11;
 	int m,j,i;
@@ -181,8 +215,16 @@ void gauleg(double x1, double x2, double x[], double w[], int n)
 
 
 float qgaus(float (*func)(float), float a, float b)
-//Returns the integral of the function func between a and b, by ten-point Gauss-Legendre inte-
-//gration: the function is evaluated exactly ten times at interior points in the range of integration.
+//! Gauss-Legendre integral of a function.
+//! Returns the integral of the function over the interval [a,b] computed using the by ten-point 
+//! Gauss-Legendre integration: the function is evaluated exactly ten times at interior points 
+//! in the range of integration.
+//!
+//! @param func pointer to a function to be integrated
+//! @param a interval of integration lower limit
+//! @param b interval of integration upper limit
+//!
+//! @result Value of the integral over the interval [a,b].
 {
     int j;
     float xr,xm,dx,s;
@@ -201,8 +243,18 @@ float qgaus(float (*func)(float), float a, float b)
 
 
 double qgaus_general(double w[], double y[], int N, double a, double b)
-// generalized version of qgauss that returns the integral of the function func between a and b, 
-// on supplied grid x-pooits and ther weights
+//! A generalized version of `qgauss()` function.
+//! It gives the integral of the function over the interval [a,b] on a supplied 
+//! grid of functional values y and ther weights.
+//!
+//! @param func pointer to a function to be integrated
+//! @param w array of weights
+//! @param y array of functional values y=f(x[i])
+//! @param N length of w[] and y[] arrays
+//! @param a interval of integration lower limit
+//! @param b interval of integration upper limit
+//!
+//! @result Value of the integral over the interval [a,b].
 {
     int j;
     double s  = 0.0;
@@ -211,4 +263,6 @@ double qgaus_general(double w[], double y[], int N, double a, double b)
 }
 
 
+#undef NMAX_TRAPEZOID
+#undef NMAX_SIMPSON
 

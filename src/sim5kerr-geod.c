@@ -8,6 +8,14 @@
 //    (c) Michal Bursa, Astronomical Institute of the CAS
 //************************************************************************
 
+
+//! \file sim5kerr-geod.c
+//! Null geodesics in Kerr spacetime.
+//! 
+//! Routines for computing null geodesics (trajectories of light rays) in Kerr spacetime based 
+//! on numerical evaluation of elliptic integrals.
+
+
 /*
 #ifdef CUDA
 __host__ __device__ void error(char *s) {
@@ -16,6 +24,7 @@ __host__ __device__ void error(char *s) {
 #endif
 */
 
+//! \cond SKIP
 // define some helper macros
 #define theta_int(x) (g->mK*jacobi_icn((x)/sqrt(g->m2p),g->mm))
 #define theta_inv(x) (sqrt(g->m2p)*jacobi_cn((x)/g->mK,g->mm))
@@ -25,25 +34,26 @@ DEVICEFUNC double geodesic_priv_RR(geodesic *g, double r);
 DEVICEFUNC double geodesic_priv_TT(geodesic *g, double m);
 DEVICEFUNC int geodesic_priv_R_roots(geodesic *g, double r0, int *error);
 DEVICEFUNC int geodesic_priv_T_roots(geodesic *g, double m0, int *error);
+//! \endcond
 
 
 
 DEVICEFUNC
 int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g, int *error)
-//! Makes setup for geodesic that is specified by impact parameters at infinity.
+//! Initialization of a geodesic based on its impact parameters at infinity.
+//! Makes a setup for a geodesic that is specified by its impact parameters at infinity. 
+//! The imapct parameter is a perpendicular distance of the ray from the line-of-sight of the 
+//! observer towards the black hole (the ray is parallel to the line-of-sight at infinity).
 //!
-//! Parameters:
-//!     i      - inclination angle of observer (angle between BH rotation axis and
-//!              direction to observer) [radians]
-//!     a      - BH spin [0..1]
-//!     alpha  - impact parameter in horizontal direction [GM/c^2]
-//!     beta   - impact parameter in vertical direction [GM/c^2]
-//!     g      - structure with information about geodesic
-//!     error  - error code
+//! @param i      inclination angle of observer (angle between BH rotation axis and direction to observer) [radians]
+//! @param a      BH spin [0..1]
+//! @param alpha  impact parameter in horizontal direction [GM/c^2]
+//! @param beta   impact parameter in vertical direction [GM/c^2]
+//! @param g      structure with information about geodesic (output)
+//! @param error  error code (output)
 //!
-//! Returns:
-//!     * error is 0 if setup is sucessfull or contains a non-zero error code
-//!     * information about geodesic is stored in structure g
+//! @result Returns TRUE on success or FALSE on error. In the latter case, an non-zero error code is 
+//!         returned in `error` parameter. Information about the geodesic is stored in structure g.
 {
 
     if ((a < 0.0) || (a > 1.-1e-6)) {
@@ -58,7 +68,7 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
 
     if (beta == 0.0) beta = +1e-6;
 
-    g->a = max(1e-8, a);
+    g->a = max(1e-4, a);
     g->incl  = i;
     g->cos_i = cos(i);
     g->alpha = alpha;
@@ -94,20 +104,20 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
 
 DEVICEFUNC
 int geodesic_init_src(double a, double r, double m, double k[4], int ppc, geodesic *g, int *error)
-//! Makes setup for geodesic that is specified by a point and direction (4-momentum vector).
+//! Initialization of a geodesic based on a position and direction.
+//! Makes a setup for a geodesic that is specified by a point and a direction (4-momentum vector) 
+//! somewhere along the trajectory. 
 //!
-//! Parameters:
-//!     a      - BH spin [0..1]
-//!     r      - radial coordinate [GM/c^2]
-//!     m      - poloidal coordinate [cos(theta)]
-//!     k      - direction of the photon (4-momentum vector)
-//!     ppc    - position with respect to periastron (0=before periastron, 1=after periastron)
-//!     g      - structure with information about geodesic
-//!     error  - error code [out]
+//! @param a      BH spin [0..1]
+//! @param r      radial coordinate of the point [GM/c^2]
+//! @param m      poloidal coordinate of the point (\f$m=cos(\theta)\f$)
+//! @param k      4-momentum null vector (\f$k \cdot k=0\f$) pointing in the direction of the ray
+//! @param ppc    position with respect to pericenter (0=before pericenter, 1=after pericenter)
+//! @param g      structure with information about geodesic (output)
+//! @param error  error code (output)
 //!
-//! Returns:
-//!     * error is GD_OK if setup is sucessfull, in case of an error it contains a non-zero error code
-//!     * information about geodesic is stored in structure g
+//! @result Returns TRUE on success or FALSE on error. In the latter case, an non-zero error code is 
+//!         returned in `error` parameter. Information about the geodesic is stored in structure g.
 {
     // calculate motion constants
     double l,q;
@@ -167,23 +177,22 @@ int geodesic_init_src(double a, double r, double m, double k[4], int ppc, geodes
 
 DEVICEFUNC
 double geodesic_P_int(geodesic *g, double r, int ppc)
-//! Returns the value of position integral along geodesics at point r.
+//! Position integral along geodesics at radius r.
+//! It gives the value of the integral (Bursa 2017, eq. 34, and 43)
+//! \f[ P = \int 1/\sqrt{R} dr = \int 1/\sqrt{\Theta} d\theta \f]
+//! The integral is integrated from infinity to the given point on the trajecotry, 
+//! where the geodesic reaches radius \f$r\f$ either before or behind the trajecory pericenter.
 //!
-//! The function gives the value of the integral
-//!     P = \int 1/\sqrt{R} dr = \int 1/\sqrt{\Theta} d\theta
-//! This integral is integrated from infinity to the point, where the geodesic
-//! reaches radius r either before or behind its periastron.
 //! The value of the integral increases monotonicly from infinity along the geodesic
-//! and thus we use it for parametrizing it.
-//! Note it is not affine parameter, which would be other choice for parametrization.
+//! and thus it provides a convenient way of parametrizing the position along the geodesic that is 
+//! used in many other routined of the module. Note however, that the value of this integral is not 
+//! the affine parameter, which would be another choice for parametrization.
 //!
-//! Parameters:
-//!     g      - geodesic
-//!     r      - radial coordinate [GM/c^2]
-//!     ppc    - position with respect to periastron (0=before periastron, 1=after periastron)
+//! @param g    geodesic data
+//! @param r    radial coordinate [GM/c^2]
+//! @param ppc  position with respect to pericenter (0=before pericenter, 1=after pericenter)
 //!
-//! Returns:
-//!     Value of the position integral between infinity and given point.
+//! @result     Value of the position integral between infinity and given point.
 {
     double r1,r2,r3,r4,u,v, mm, R, A, B;
 
@@ -255,10 +264,10 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
 
 
 
-
+//! \cond SKIP
 DEVICEFUNC
 void geodesic_position(geodesic *g, double P, double x[4])
-//! Returns point on the geodesic, where the position integral gains value P.
+//! Point on the geodesic, where the position integral gains value P.
 //!
 //! The integral is evaluted in the form
 //! phi = a \int (2r-al)/(Delta \sqrt{R}) dr  +  l \int sin^-2(\theta) / \sqrt{Theta} d\theta
@@ -274,20 +283,20 @@ void geodesic_position(geodesic *g, double P, double x[4])
 {
     return;
 }
-
+//! \endcond
 
 
 
 DEVICEFUNC
 double geodesic_position_rad(geodesic *g, double P)
-//! Gives radius at which the position integral gains value P.
+//! Radius at which the position integral gains value P.
+//! Given the value \f$P\f$ of the positional integral along the geodesic, the function computes
+//! the radial coordinate for the position.
 //!
-//! Parameters:
-//!     g      - geodesic
-//!     P      - value of the position integral
+//! @param g  geodesic data
+//! @param P  value of the position integral
 //!
-//! Returns:
-//!     Radius [GM/c^2]
+//! @result Radial coordinate value [GM/c^2] or NAN in case of error.
 {
     double r1,r2,r3,r4,u,v;
 
@@ -333,7 +342,7 @@ double geodesic_position_rad(geodesic *g, double P)
             double B = sqrt(sqr(r2-u)+sqr(v));
             double m2 = (sqr(A+B) - sqr(r1-r2)) / (4.*A*B);
             double cn = jacobi_cn(sqrt(A*B)*(g->Rpc-P), m2);
-            fprintf(stderr, "r-RC: mm=%.4e z=%.4e icn=%.4e  r=%.4e\n", m2, sqrt(A*B)*(g->Rpc-P), cn, (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn ));
+            //fprintf(stderr, "r-RC: mm=%.4e z=%.4e icn=%.4e  r=%.4e\n", m2, sqrt(A*B)*(g->Rpc-P), cn, (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn ));
             return (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn );
         
         case CLASS_CC:
@@ -352,14 +361,14 @@ double geodesic_position_rad(geodesic *g, double P)
 
 DEVICEFUNC
 double geodesic_position_pol(geodesic *g, double P)
-//! Gives poloidal (theta) angle at which the position integral gains value P.
+//! Poloidal coordinate value at which the position integral gains value P.
+//! Given the value \f$P\f$ of the positional integral along the geodesic, the function computes
+//! the poloidal coordinate for the position. The coordinate is returned as a cosine of the angle theta.
 //!
-//! Parameters:
-//!     g      - geodesic
-//!     P      - value of the position integral
+//! @param g  geodesic data
+//! @param P  value of the position integral
 //!
-//! Returns:
-//!     Cosine of theta angle.
+//! @result Poloidal coordinate value [cos(theta)] or NAN in case of error.
 {
     double sign_dm, T;
 
@@ -402,14 +411,14 @@ double geodesic_position_pol(geodesic *g, double P)
 
 DEVICEFUNC
 double geodesic_position_pol_sign_k_theta(geodesic *g, double P)
-//! Gives the sign of k^\theta component of the 4-momentum.
+//! Sign of the \f$k^\theta\f$ component of the 4-momentum.
+//! Gives the orientation of the 4-momentum vector in the poloidal direction by 
+//! returning the sign of \f$k^\theta\f$ component of the momentum vector.
 //!
-//! Parameters:
-//!     g      - geodesic
-//!     P      - value of the position integral
+//! @param g  geodesic data
+//! @param P  value of the position integral
 //!
-//! Returns:
-//!     +1 or -1
+//! @result Returns +1 or -1 or NAN in case of an error.
 {
     double sign_dm, T;
 
@@ -452,18 +461,19 @@ double geodesic_position_pol_sign_k_theta(geodesic *g, double P)
 
 DEVICEFUNC
 double geodesic_position_azm(geodesic *g, double r, double m, double P)
-//! Gives azimuthal (phi) angle at which the position integral gains value P.
-//!
+//! Azimuthal coordinate value at which the position integral gains value P.
+//! Given the value \f$P\f$ of the positional integral along the geodesic, the function computes
+//! the azimuthal coordinate for the position. 
 //! The value of azimuthal angle is assumed to be zero at infinity and
 //! the function gives the change of the angle between
 //! the point [r,m] and infinity.
 //!
-//! Parameters:
-//!     g      - geodesic
-//!     P      - value of the position integral
+//! @param g  geodesic data
+//! @param r  radial coordinate of the current position
+//! @param m  poloidal coordinate of the current position
+//! @param P  value of the position integral
 //!
-//! Returns:
-//!     Phi angle in radians (can be more than 2pi)
+//! @result Difference between azimuthal angle at [r,m] and at infinity [radians]. The result can be larger than 2pi.
 {
     double phi = 0.0;
 
@@ -548,18 +558,20 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
 
 DEVICEFUNC
 double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P2, double r2, double m2)
-//! Gives travel-time (timedelay) between positions P1 and P2.
-//! 
-//! Returned value is always positive (independent of relative position of 
-//! P1 and P2 along the geodesic).
+//! Time delay (travel time) between positions P1 and P2.
+//! Gives time it takes the light to travel between two points along a geodesic.
+//! Returned value is always positive independent of the relative position of 
+//! P1 and P2 along the geodesic.
 //!
-//! Parameters:
-//!     g      - geodesic
-//!     P1     - value of the position integral at point A
-//!     P2     - value of the position integral at point B
+//! @param g   geodesic data
+//! @param P1  value of the position integral at point A
+//! @param r1  value of the radial coordinate at point A; if zero, it is computed from P1 internally
+//! @param m1  value of the poloidal coordinate at point A (\f$m=cos(\theta)\f$); if zero, it is computed from P1 internally
+//! @param P2  value of the position integral at point B
+//! @param r2  value of the radial coordinate at point B; if zero, it is computed from P2 internally
+//! @param m2  value of the poloidal coordinate at point B (\f$m=cos(\theta)\f$); if zero, it is computed from P2 internally
 //!
-//! Returns:
-//!     timedelay (positive) between position P1 and P2 (point A and B)
+//! @result    Timedelay (positive) between position P1 and P2 (point A and B) or NAN in case of an error.
 {
     double time = 0.0;
 
@@ -773,6 +785,7 @@ double geodesic_dm_sign(geodesic *g, double P)
 
 DEVICEFUNC
 void geodesic_momentum(geodesic *g, double P, double r, double m, double k[])
+//! Photon 4-momentum.
 //! Gives the 4-momentum of photons at given position along the geodesic.
 //! The function needs to know [r,m] coordinates of the point at the trajectory.
 //! If both r=m=0.0, the required values are computed from the value P of 
@@ -783,15 +796,13 @@ void geodesic_momentum(geodesic *g, double P, double r, double m, double k[])
 //! i.e. it points towards the radial turning point before it is reached and away 
 //! from the radial turning point after it is reached.
 //!
-//! Parameters:
-//!     g      - geodesic
-//!     P      - value of the position integral
-//!     r      - radial coordinate (value or zero)
-//!     m      - poloidal coordinate (value or zero)
-//!     k      - 4-momentum vector (output)
+//! @param g      - geodesic data
+//! @param P      - value of the position integral
+//! @param r      - radial coordinate (value or zero)
+//! @param m      - cosine of poloidal coordinate (value or zero)
+//! @param k      - 4-momentum vector (output)
 //!
-//! Returns:
-//!     Photon 4-momentum.
+//! @result Photon 4-momentum vector is returned in k[].
 {
     double dm;
 
@@ -833,7 +844,19 @@ void geodesic_momentum(geodesic *g, double P, double r, double m, double k[])
 
 DEVICEFUNC
 double geodesic_find_midplane_crossing(geodesic *g, int order)
-// the value of T-integral in the equatorial plane
+//! Finds a crossing of the geodesic with the equatorial plane.
+//! Calculates, where (if ever) the geodesic crosses the equatorial plane, and returns
+//! the value of the positional integral for that place. This is the fastest way to 
+//! integrate over the equatorial plane. The positional integral can be converted to radius, which 
+//! allows straightforward integration over the solid angle, for example
+//! \f[ F_\nu(E) = 1/D^2 \int I_\nu(E/g, r) d\alpha\,d\beta \f]
+//! where \f$r = r(\alpha, \beta)\f$, \f$D\f$ is distance and \f$g\f$ is g-factor.
+//!
+//! @param g      geodesic data
+//! @param order  order of crossing; order=0 zero is the first crossing, higher orders may be reached 
+//!                by some geodesics that loop around the photon orbit
+//!
+//! @result Value of the positional integral at the equatorial plane.
 {
     if (g->q<=0.0) {
         // there is no midplane crossing for photons with q<=0
@@ -866,8 +889,19 @@ double geodesic_find_midplane_crossing(geodesic *g, int order)
 
 DEVICEFUNC
 void geodesic_follow(geodesic *g, double step, double *P, double *r, double *m, int *status)
-// follows geodesic by evolution of g.x from its initial point (has to be set prior to call to follow())
-// P, r, m has to be valid values on initial call
+//! Makes a step along the geodesic.
+//! Moves current position on the ray along the geodescis. On input, the function receives the 
+//! current position integral value and radial and poloidal coordinate. It computes new values for 
+//! P, r and m and shifts them to a new position along the geodesics by a given step.
+//! 
+//! This function is meant to be called in a cycle to follow the geodesics in a piecewise steps.
+//!
+//! @param g        geodesic data
+//! @param step     size of step to advance
+//! @param P        value of the positional integral (input and output)
+//! @param r        value of the radial coordinate (input and output)
+//! @param m        value of the poloidal coordinate (input and output; \f$m=cos(theta)\f$)
+//! @param status   status code; status=0 if ok, it get a non-zero value on an error
 {
     const double MAXSTEP_FACTOR = 5e-2;
 
@@ -928,6 +962,7 @@ void geodesic_follow(geodesic *g, double step, double *P, double *r, double *m, 
 // private methods
 //------------------------------------------------------------------------------
 
+//! \cond SKIP
 
 DEVICEFUNC
 double geodesic_priv_RR(geodesic *g, double r) 
@@ -1147,6 +1182,8 @@ int geodesic_priv_T_roots(geodesic *g, double m, int *error)
 
     return TRUE;
 }
+
+//! \endcond
 
 
 #undef theta_int

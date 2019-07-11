@@ -11,25 +11,9 @@
 
 
 //! \file sim5interpolation.c
-//! Interpolation routines.
+//! Numerical interpolation.
 //! 
 //! Provides routines for interpolation of table data.
-
-
-//    Created: 24.10.2012
-
-
-
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <math.h>
-#include "sim5interpolation.h"
-*/
-
-
 
 
 //! \cond SKIP

@@ -8,6 +8,14 @@
 //    (C) 2015 Michal Bursa
 //************************************************************************
 
+
+//! \file sim5distributions.c
+//! Drawing numbers from statistical distributions.
+//! 
+//! Routines for drawing random numbers that follow a given statistical distribution.
+
+
+
 #ifndef CUDA
 
 DEVICEFUNC
@@ -15,7 +23,7 @@ void distrib_init(sim5distrib* d, double(*pdf)(double), double x_min, double x_m
 //! Creates a distribution based on given probability density function (PDF).
 //!
 //! Uses given probability density function to initiate the internal data structure with
-//! calculated cummulative distribution its inverse.
+//! calculated cummulative distribution and its inverse.
 //!
 //! @param d pointer to structure that stores the disribution data
 //! @param pdf pointer to probability density function
@@ -86,7 +94,7 @@ double distrib_hit(sim5distrib* d)
 //! Generates a functional value on interval [x_min:x_max] according to the distribution.
 //!
 //! With the help of precomputed cummulative distribution function it generates
-//! a value form the interval [x_min:x_max] and returns tnis value.
+//! a value form the interval [x_min:x_max] and returns this value.
 //!
 //! @param d pointer to structure that stores the disribution data
 //!
@@ -96,3 +104,5 @@ double distrib_hit(sim5distrib* d)
 }
 
 #endif
+
+

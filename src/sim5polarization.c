@@ -1,3 +1,15 @@
+//! \file sim5polarization.c
+//! Polarization properties of radiation.
+//! 
+//! These routines help to calculate the change in polarization properties of radiation as it 
+//! passes through a curved spacetime.
+//!
+//! The orientation of the polarization vector 
+//! (and thus the polarization angle) changes along the geodesic due to parallel transport. 
+//! Knowing the inital direction of the vector, its orientation can be calculated at any place along 
+//! the geodesic including the at-infinity limit. 
+
+
 DEVICEFUNC
 void polarization_vector(double k[4], sim5complex wp, sim5metric *metric, double f[4])
 //! Photon polarization vector.

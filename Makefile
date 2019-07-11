@@ -6,7 +6,7 @@ CC=gcc
 default: lib
 
 clean:
-	@rm -f *.o src/*.o bin/*
+	@rm -f *.o src/*.o lib/*
 	@rm -f src/*_wrap.c
 
 #%.o: %.c
@@ -30,7 +30,7 @@ python: lib
 	mv src/sim5lib.py lib/sim5lib.py
 	sed -i "s/'_sim5lib'/'sim5lib'/g" lib/sim5lib.py
 	sed -i "s/_sim5lib/sim5lib/g" src/sim5lib_wrap.c
-	cat py/sim5*.py >> bin/sim5lib.py
+	cat python/sim5*.py >> lib/sim5lib.py
 	$(CC) -c src/sim5lib_wrap.c -o src/sim5lib_wrap.o $(CFLAGS) -I/usr/include/python2.7 $(LFLAGS)
 	$(CC) -shared src/sim5lib.o src/sim5lib_wrap.o $(CFLAGS) $(LFLAGS) -o lib/sim5lib.so
 	rm -f src/*_wrap.*
@@ -38,19 +38,19 @@ python: lib
 
 export:
 	echo 'Compiling for export'
-	@rm -f bin/sim5lib.h
-	@for i in `cat src/sim5lib.h | grep -e '^\#include ".*.h"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat src/$$i >> bin/sim5lib.h; done
-	@sed -i 's/[ \t]*$$//;/^[ \t]*\/\//d;s/\/\/.*$$//' bin/sim5lib.h
-	@rm -f bin/sim5lib.c
-	@echo "#include \"sim5lib.h\"" > bin/sim5lib.c
-	@for i in `cat src/sim5lib.c | grep -e '^\#include ".*.c"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat src/$$i >> bin/sim5lib.c; done
-	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//;s/    / /' bin/sim5lib.c
-	$(CC) -c bin/sim5lib.c -o bin/sim5lib.o $(CFLAGS) $(LFLAGS)
-	@rm bin/sim5lib.o
+	@rm -f lib/sim5lib.h
+	@for i in `cat src/sim5lib.h | grep -e '^\#include ".*.h"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat src/$$i >> lib/sim5lib.h; done
+	@sed -i 's/[ \t]*$$//;/^[ \t]*\/\//d;s/\/\/.*$$//' lib/sim5lib.h
+	@rm -f lib/sim5lib.c
+	@echo "#include \"sim5lib.h\"" > lib/sim5lib.c
+	@for i in `cat src/sim5lib.c | grep -e '^\#include ".*.c"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat src/$$i >> lib/sim5lib.c; done
+	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//;s/    / /' lib/sim5lib.c
+	$(CC) -c lib/sim5lib.c -o lib/sim5lib.o $(CFLAGS) $(LFLAGS)
+	@rm lib/sim5lib.o
 
 
 debug: lib
-	$(CC) -shared -o bin/sim5lib.so $(CFLAGS) -O0 -g -pg $(LFLAGS) src/sim5lib.c
+	$(CC) -shared -o lib/sim5lib.so $(CFLAGS) -O0 -g -pg $(LFLAGS) src/sim5lib.c
 
 
 test: lib

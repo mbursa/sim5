@@ -8,13 +8,8 @@
 //    Bocni II 1401/1, 141-00 Praha 4, Czech Republic
 //************************************************************************
 
-/*
-#include "sim5config.h"
-#ifndef CUDA
-#include <math.h>
-#include "sim5math.h"
-#endif
-*/
+//! \file sim5math.c
+//! Mathematical routines.
 
 
 DEVICEFUNC INLINE

@@ -8,7 +8,15 @@
     <xsl:template match="/">
         <xsl:text># SIM5 Library Reference</xsl:text>
         <xsl:text>&#xa;&#xa;</xsl:text>
-        <xsl:text><![CDATA[<br/>]]>&#xa;&#xa;</xsl:text>
+        <xsl:text>SIM5 is a collection of C routines for relativistic raytracing and radiation transfer. It has a special focus on raytracing from accretion disks, tori, hot spots or any custom 3D configuration of matter in Kerr geometry, but it can be used with any other metrics as well. It can handle both optically thick and thin sources as well as transport of polarization properties and helps to calculate the propagation of light rays from the source to an observer through a curved spacetimes. The library is threas-safe (with a few documented exceptions) compiles with Nvidia CUDA compiler which opens the door to massive parallelization using GPUs.</xsl:text>
+        <xsl:text>&#xa;&#xa;</xsl:text>
+        <xsl:text>SIM5 also comes with a Python interface making it very easy to call its functions directly from Python scripts. In addition it provides few Python classes to handle some more complex tasks.</xsl:text>
+                 
+        <xsl:text>&#xa;&#xa;</xsl:text>
+        <xsl:text>The following documentation provides a detailed reference to the functions of the library. The library also comes with couple of examples that illustrate how to piece the individual routines together to do some useful stuff. Routines are grouped together according to specific topics. The content gives a list of these topics with link to corresponding parts of the docs. If you are looking for something specific, use Ctrl-F.</xsl:text>
+                 
+        <xsl:text>&#xa;&#xa;</xsl:text>
+        <xsl:text><![CDATA[<br>]]>&#xa;&#xa;</xsl:text>
 
         <xsl:text>## Content&#xa;</xsl:text>
         <xsl:for-each select="/doxygenindex/compound[@kind='file']">
@@ -17,7 +25,7 @@
             <xsl:text>* [</xsl:text><xsl:value-of select="$filebrief"/><xsl:text> (</xsl:text><xsl:value-of select="$filename"/><xsl:text>)](#</xsl:text><xsl:value-of select="$filename"/><xsl:text>)&#xa;</xsl:text>
         </xsl:for-each>
         <xsl:text>&#xa;&#xa;</xsl:text>
-        <xsl:text><![CDATA[<br/>]]>&#xa;&#xa;</xsl:text>
+        <xsl:text><![CDATA[<br>]]>&#xa;&#xa;</xsl:text>
 
         <xsl:for-each select="/doxygenindex/compound[@kind='file']">
             <xsl:apply-templates select="document(concat('xml/',@refid,'.xml'))/doxygen/compounddef" />
@@ -49,6 +57,7 @@ Content
     <!-- process definitions for of each file section -->
     <xsl:template match="compounddef[@kind='file']">
         <!-- file description -->
+        <xsl:text><![CDATA[<br>]]>&#xa;&#xa;</xsl:text>
         <xsl:text>## </xsl:text>
         <xsl:text><![CDATA[<a name="]]></xsl:text><xsl:value-of select="substring-before(compoundname, '.')" /><xsl:text><![CDATA["></a>]]></xsl:text>
         <xsl:value-of select="compoundname" />
@@ -71,7 +80,7 @@ Content
         <xsl:apply-templates select="listofallmembers"/>
         Location: [[\\<xsl:value-of select="./location/@file"/>]]
         -->
-        <xsl:text><![CDATA[<br/><br/><br/>]]>&#xa;&#xa;</xsl:text>
+        <xsl:text><![CDATA[<br><br><br>]]>&#xa;&#xa;</xsl:text>
     </xsl:template>
 
     <xsl:template match="compounddef">
@@ -111,7 +120,7 @@ Content
             </xsl:apply-templates>
 
             <xsl:if test="detaileddescription/para">
-            <xsl:text><![CDATA[<br/>]]></xsl:text>
+            <xsl:text><![CDATA[<br>]]></xsl:text>
                 <xsl:apply-templates select="detaileddescription/para" />
             </xsl:if>
         
@@ -172,8 +181,8 @@ Content
         <xsl:text>    </xsl:text><xsl:value-of select="type" /><xsl:text> </xsl:text><xsl:value-of select="name" /><xsl:value-of select="argsstring" /><xsl:text>&#xa;</xsl:text>
         <xsl:text>&#xa;</xsl:text>
         <xsl:apply-templates select="detaileddescription" />
-        <xsl:text>---------&#xa;</xsl:text>
-        <xsl:text><![CDATA[<br/>]]>&#xa;&#xa;</xsl:text>
+        <xsl:text><![CDATA[<br>]]>&#xa;&#xa;</xsl:text>
+        <xsl:text>---------&#xa;&#xa;</xsl:text>
     </xsl:template>
 
 
@@ -314,14 +323,32 @@ Content
         <xsl:variable name="eq0" select="." />
         <xsl:choose>
             <xsl:when test="contains($eq0,'\[')">
+                <!--
                 <xsl:variable name="eq1" select="concat(substring-before($eq0,'\['), '$$', substring-after($eq0,'\['))" />
                 <xsl:variable name="eq2" select="concat(substring-before($eq1,'\]'), '$$', substring-after($eq1,'\['))" />
-                <xsl:text>&#xa;&#xa;</xsl:text><xsl:value-of select="$eq2"/>
+                <xsl:text>&#xa;&#xa;</xsl:text><xsl:value-of select="$eq2"/><xsl:text>&#xa;&#xa;</xsl:text>
+                -->
+                <!-- the following implements GitLab KaTex syantax for stand-alone equations -->
+                <xsl:variable name="eq1" select="concat(substring-before($eq0,'\['), substring-after($eq0,'\['))" />
+                <xsl:variable name="eq2" select="concat(substring-before($eq1,'\]'), substring-after($eq1,'\['))" />
+                <xsl:text>&#xa;```math&#xa;</xsl:text><xsl:value-of select="$eq2"/><xsl:text>&#xa;```&#xa;</xsl:text>
             </xsl:when>
             <xsl:otherwise>
-                <xsl:value-of select="$eq0"/>
+                <!-- the following implements GitLab KaTex syantax for in-line equations -->
+                <xsl:variable name="eq1" select="concat(substring-before($eq0,'$'), substring-after($eq0,'$'))" />
+                <xsl:variable name="eq2" select="concat(substring-before($eq1,'$'), substring-after($eq1,'$'))" />
+                <xsl:text>$`</xsl:text><xsl:value-of select="$eq2"/><xsl:text>`$</xsl:text>
             </xsl:otherwise>
         </xsl:choose>
+    </xsl:template>
+
+
+    <xsl:template match="verbatim">
+        <xsl:text>&#xa;</xsl:text>
+        <xsl:text>```&#xa;</xsl:text>
+        <xsl:value-of select="."/>
+        <xsl:text>```&#xa;</xsl:text>
+        <xsl:text>&#xa;</xsl:text>
     </xsl:template>
 
 

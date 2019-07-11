@@ -11,22 +11,16 @@
 //! \file sim5roots.c
 //! Root finding.
 //! 
-//! Provides routines for ffinding roots of functions.
+//! Routines for finding roots of functions numericaly.
 
-// created 2005/07/18
-
-/*
-#include <math.h>
-#include "sim5utils.h"
-*/
 
 //! \cond SKIP
 #define MAX_STEPS  500
 //! \endcond
 
 long rtbis(double x1, double x2, double xacc, double (*fx)(double), double* result)
-//! Root finding.
-//! Finds root of a function on an interval. Using bisection method, finds the root of a 
+//! Root finding by bisection.
+//! Finds root of a function on an interval. Using bisection method, it finds the root of a 
 //! function `fx` that is known to lie between `x1` and `x2`. The root, returned as `result`, 
 //! will be refined until its accuracy is +/- xacc.
 //!

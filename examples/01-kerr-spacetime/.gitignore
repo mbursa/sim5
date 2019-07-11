@@ -1,2 +1,6 @@
-*.o
-kerr-orbits
+*
+!Makefile
+!README*
+!*.c
+!*.h
+!*.py

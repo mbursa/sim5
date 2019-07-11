@@ -1,11 +1,6 @@
-/*
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include "sim5utils.h"
-#include "sim5math.h"
-*/
+//! \file sim5utils.c
+//! Utility routines.
+
 
 
 void gprintf(FILE* file, const char *templatex, ...)

@@ -11,11 +11,11 @@
 //! \file sim5const.h
 //! Constants and unit conversions
 //!
-//! The library's default unit system is CGS. 
-//! Sometimes constants in SI units (prefixed by `si_`) or in geometrical units (G=c=1; prefixed by `gu_`) are needed.
+//! The library's default unit system is CGS, which is what astronomers like. Any unprefixed constant is given in this system of units. 
+//! Sometimes constants in SI units (prefixed by `si_`) or in geometrical units (G=c=1; prefixed by `gu_`) are needed and few of them are defined too.
 //!
-//! To convert between different units, some frequent conversion factors are defined. 
-//! E.g. by multipying an energy value given in ergs by `erg2kev` factor makes a conversion to kiloelectronvolts.
+//! To convert between different units, some frequent conversion factors are defined (with the number "2" in the name).
+//! E.g. by multipying an energy value given in ergs by `erg2joule` factor, one gets the value in Joules.
 
 #ifndef _SIM5CONST_H
 #define _SIM5CONST_H
@@ -83,6 +83,7 @@
 #define erg2joule           1.000000e-07         //!< erg->Joule
 #define kev2joule           1.602177e-16         //!< keV->Joule (1e3*electronvolt)
 #define freq2kev            4.135667e-18         //!< Hz->keV (planck_h/(1e3*electronvolt))
+#define freq2erg            6.626069e-27         //!< Hz->erg (planck_h/erg)
 #define kev2freq            2.417990e+17         //!< keV->Hz (1e3*electronvolt/planck_h)
 #define msq2cmsq            1.000000e+04         //!< squared centimeters in one squared meter
 #define cmsq2msq            1.000000e-04         //!< squared meters in one squared centimeter

@@ -1206,7 +1206,6 @@ void ortho_tetrad_U(
     double U[4],
     double g00, double g11, double g22, double g33, double g03,
     double e0[4], double e1[4], double e2[4], double e3[4])
-//*********************************************************
 // calculates a convenient orthonormal tetrad for a fluid with
 // four-velocity U, which satisfies condition U^\phi >> U^r, U^\theta
 // see Krolik, Hawley & Hirose (2005), ApJ, 622, 1088
@@ -1253,7 +1252,7 @@ void ortho_tetrad_U_phi_r_motion(
     double U[4],
     double g00, double g11, double g22, double g33, double g03,
     double e0[4], double e1[4], double e2[4], double e3[4])
-//*********************************************************
+
 // calculates a convenient orthonormal tetrad for a fluid with
 // four-velocity U, which satisfies condition U^\theta = 0
 // - puts x-vector oriented along increasing r, but tilted into phi by U^r boost

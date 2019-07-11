@@ -9,6 +9,11 @@
 //************************************************************************
 
 
+//! \file sim5math.h
+//! Mathematical macros.
+//!
+//! Some useful mathematical macros.
+
 #ifndef _SIM5MATH_H
 #define _SIM5MATH_H
 
@@ -22,48 +27,49 @@
 //#endif
 
 
-#define PI      3.14159265359
-#define PI2     6.28318530718
-#define PI4     12.5663706144
-#define PI_half 1.57079632679
+#define PI      3.14159265359                                   //!< PI
+#define PI2     6.28318530718                                   //!< 2*PI
+#define PI4     12.5663706144                                   //!< 4*PI
+#define PI_half 1.57079632679                                   //!< PI/2
 
-#define sqr(a)   ((a) * (a))
-#define sqr2(a)  ((a) * (a))
-#define sqr3(a)  ((a) * (a) * (a))
-#define sqr4(a)  ((a) * (a) * (a) * (a))
-#define sqrt3(a) cbrt(a)
-#define sqrt4(a) pow(a,0.25)
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#define min(a,b) ((a) < (b) ? (a) : (b))
-#define minmax(val, vmin, vmax) min(vmax,max(val,vmin))
-#define odd(a) ((a%2==1)?1:0)
-#define sign(a) ((a) >= 0.0 ? (+1.0) : (-1.0))
-//#define hypot(a,b) (sqrt((a)*(a) + (b)*(b)))
-#define deg2rad(a) ((a)/180.0*M_PI)
-#define rad2deg(a) ((a)*180.0/M_PI)
-#define EE(a) pow(10.0,a)
-#define ave(a, b, w) ((1.0-(w))*(a) + (w)*(b))
-#define logave(a, b, w) (exp((1.0-(w))*log(a) + (w)*log(b)))
-#define inrange(a, min, max) (((a)>=(min))&&((a)<=(max)))
+#define sqr(a)   ((a) * (a))                                    //!< quadratic power of a
+#define sqr2(a)  ((a) * (a))                                    //!< quadratic power of a
+#define sqr3(a)  ((a) * (a) * (a))                              //!< cubic power of a
+#define sqr4(a)  ((a) * (a) * (a) * (a))                        //!< quartic power of a
+#define sqrt3(a) cbrt(a)                                        //!< cubic root of a
+#define sqrt4(a) pow(a,0.25)                                    //!< quartic root of a
+#define max(a,b) ((a) > (b) ? (a) : (b))                        //!< maximum of two values
+#define min(a,b) ((a) < (b) ? (a) : (b))                        //!< minimum of two values
+#define minmax(val, vmin, vmax) min(vmax,max(val,vmin))         //!< values within limits
+#define odd(a) ((a%2==1)?1:0)                                   //!< is odd number
+#define sign(a) ((a) >= 0.0 ? (+1.0) : (-1.0))                  //!< positive or negative
+//#define hypot(a,b) (sqrt((a)*(a) + (b)*(b)))                    //!< 
+#define deg2rad(a) ((a)/180.0*M_PI)                             //!< convert degrees to radians
+#define rad2deg(a) ((a)*180.0/M_PI)                             //!< convert radians to degrees
+#define EE(a) pow(10.0,a)                                       //!< power of 10
+#define ave(a, b, w) ((1.0-(w))*(a) + (w)*(b))                  //!< weighted average of two values
+#define logave(a, b, w) (exp((1.0-(w))*log(a) + (w)*log(b)))    //!< weighted logarithmic average of two values
+#define inrange(a, min, max) (((a)>=(min))&&((a)<=(max)))       //!< value in range
 
 
-#define rand  sim5rand()
-#define urand sim5urand()
+#define rand  sim5rand()                                        //!< integer random number (long long int)
+#define urand sim5urand()                                       //!< random number from 0 to 1 (double)
 
 
 
 
 #ifdef CUDA
-    typedef double2     sim5complex;
-    #define ComplexI    makeComplex(0.0,1.0)
+    #define ComplexI    makeComplex(0.0,1.0)                    //!< complex unit (sqrt(-1))
+    typedef double2     sim5complex;                            //!< proxy to built-in "double2" type
 #else
     #include <complex.h>
     #undef I
-    #define ComplexI _Complex_I
-    typedef double complex sim5complex;
+    #define ComplexI _Complex_I                                 //!< complex unit (sqrt(-1))
+    typedef double complex sim5complex;                         //!< proxy to built-in "complex double" type
 #endif
 
 
+//! \cond SKIP
 DEVICEFUNC INLINE long sim5round(double num);
 
 DEVICEFUNC INLINE long int factorial(long int n);
@@ -83,9 +89,9 @@ DEVICEFUNC INLINE unsigned long long sim5rand();
 DEVICEFUNC INLINE double sim5urand();
 
 
-
-
 DEVICEFUNC INLINE sim5complex makeComplex(double r, double i);
 DEVICEFUNC INLINE sim5complex nullComplex();
+//! \endcond
+
 
 #endif
