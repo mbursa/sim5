@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
     fprintf(stdout, "# marginally bound orbit (r_mb) and marginally stable orbit (r_ms)\n");
     fprintf(stdout, "# in Kerr spacetime as a function of black-hole spin.\n");
     fprintf(stdout, "# Line format: spin  r_bh  r_ph  r_mb  r_ms\n");
+    fprintf(stdout, "# Units: gravitational radius [GM/c2]\n");
     fprintf(stdout, "# ----\n");
 
     // go over spins from 0 to 1
