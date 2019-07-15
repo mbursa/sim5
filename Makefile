@@ -16,6 +16,7 @@ all: lib python export
 	@echo "done"
 
 lib: lib-clean
+	@[ -f src/sim5config.h ] || cp src/sim5config.h.default src/sim5config.h
 	$(CC) -c src/sim5lib.c -o src/sim5lib.o $(CFLAGS) $(LFLAGS)
 
 cuda: lib-clean
