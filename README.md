@@ -24,17 +24,14 @@ The C code does not have any external library dependencies except the standard s
 
     make
 
-The compilation process creates a `lib` folder and puts two files there, `sim5lib.c` and `sim5lib.h`, which contain a complete C source code merged by the compiler process from all the individual source files in `src` folder. Use those two files to statically link SIM5 in your code (most typical usage in C/C++ codes).
-<!--
-The third file is a compiled library used for run-time linking. It is used by the Python interface, but you may use it for dynamical linking of SIM5 to your code too.
--->
+The compilation process creates a `lib` folder and puts two files there, `sim5lib.c`, `sim5lib.h` and `sim5lib.o`, which contain a complete C source code merged by the compiler process from all the individual source files in `src` folder. Use those files to statically link SIM5 in your code (most typical usage in C/C++ codes), see an example bellow.
 
 ### Compilation of the Python interface
 
 The Python interface does have a few external dependecies and thus it does not compile by default when calling `make`. Before compiling the Python interface, make sure you have the following pre-requisities installed:
 
 ```bash
-    # python heders
+    # python headers
     apt install python-dev
     # SWIG - a tool that connects C/C++ programs with high-level programming languages
     apt install swig
@@ -46,11 +43,17 @@ Having those do
     make python
 ```
 
+<!--
+The third file is a compiled library used for run-time linking. It is used by the Python interface, but you may use it for dynamical linking of SIM5 to your code too.
+-->
+
 ## Usage
 
-The library can be compiled into a C/C++ code, and with a proper interface it can be used also in other languages(Fortran, ...). It also works as a Python package making most of its functions accessible from Python scripts with no extra effort. 
+The library can be directly used in C/C++ projects and with a proper interface it can be used also in other languages (Fortran, ...). It also works as a Python package making most of its functions accessible from Python scripts with no extra effort. 
 
-### Using SIM5 in your C/C++ project
+### Using SIM5 in your C/C++ project (static linking)
+
+The most typical use of the code in a C/C++ project is to use static linking. Having a sample code that uses SIM5
 
 ```C
 #include <stdlib.h>
@@ -64,14 +67,22 @@ int main(int argc, char *argv[])
     // for BH spin values from 0 to 1 print the radius of BH horizon and 
     // the location of the marginally stable orbit
     for (a=0.0; a<1.0; a+=0.01) {
-        rbh = r_bh(a);
-        rms = r_ms(a);
+        rbh = r_bh(a);  // radius of the event horizon
+        rms = r_ms(a);  // radius of the marginally stable orbit
         fprintf(stderr, "%.4e  %e  %e\n", a, rbh, rms);
     }
     
     return 0;
 }
 ```
+
+we compile the code with (assuming SIM5 is located in subfolder sim5 of the current directory and assuming `make` has been run on SIM5)
+
+```bash
+gcc kerr-orbits.c -o kerr-orbits -I./sim5/lib -L./sim5/lib ./sim5/lib/sim5lib.o -lm
+```
+
+Refer to [examples](examples) for further inspiration.
 
 ### Using SIM5 in your Python project
 SIM5 can be used as a Python module, which allows its routines to be called from a Python script. It is enough to `import sim5` in your script and call the member functions. Some care has to be taken when working with arrays and objects that are passed to SIM5 routines or returned from them. The SIM5 Python interface uses [SWIG](http://www.swig.org/) tool to make an interface between C and Python and you may refer to [SWIG documentation](http://www.swig.org/Doc3.0/SWIGDocumentation.html) to learn about how to do that.
@@ -102,14 +113,14 @@ while (r < rout):
     r = r * 1.05
 #end of while 
 ```
-This example assumes that SIM5 folder does exist in the same folder along with the script. If that is not the case, put a line specifying the path to SIM5 library before the import statement.
+This example assumes that SIM5 subfolder does exist in the same folder along with the script. If that is not the case, put a line specifying the path to SIM5 library before the import statement.
 ```Python
 sys.path.append('/path/to/sim5')
 import sim5
 ...
 ```
 
-Python calls to SIM5 routines are handled by the compiled C code in `sim5lib.so` library. Although there is some overhead connected with the call to SIM5 routines, the actual evaluation of SIM5 functions is as fact as C code can be. This makes complex tasks (like raytracing) reasonably fast even if they are coded in Python (see examples in demo folder).
+Python calls to SIM5 routines are handled by the compiled C code in `lib/sim5lib.so` library. Although there is some overhead connected with the call to SIM5 routines, the actual evaluation of SIM5 functions is as fast as C code can be. This makes complex tasks (like raytracing) reasonably fast even if they are coded in Python (see examples in demo folder).
 
 ### Raytracing with SIM5
 
