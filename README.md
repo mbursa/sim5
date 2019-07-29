@@ -20,11 +20,31 @@ Acquire the source code by cloning the git repository
 
     git clone https://github.com/mbursa/sim5
 
-The code does not have any external library dependencies except the standard system ones. Typically, it is enough to run
+The C code does not have any external library dependencies except the standard system ones. Typically, it is enough to run
 
     make
-    
-The compilation process creates a `lib` folder and puts three files there, `sim5lib.c`, `sim5lib.h` and `sim5lib.so`. The first two files contain a complete C source code which has been merged by the compiler process from all the individual source files in `src` folder. You need those files to statically link SIM5 in your code (most typical usage). The third file is a compiled library used for run-time linking. It is used by the Python interface, but you may use it for dynamical linking of SIM5 to your code too.
+
+The compilation process creates a `lib` folder and puts two files there, `sim5lib.c` and `sim5lib.h`, which contain a complete C source code merged by the compiler process from all the individual source files in `src` folder. Use those two files to statically link SIM5 in your code (most typical usage in C/C++ codes).
+<!--
+The third file is a compiled library used for run-time linking. It is used by the Python interface, but you may use it for dynamical linking of SIM5 to your code too.
+-->
+
+### Compilation of the Python interface
+
+The Python interface does have a few external dependecies and thus it does not compile by default when calling `make`. Before compiling the Python interface, make sure you have the following pre-requisities installed:
+
+```bash
+    # python heders
+    apt install python-dev
+    # SWIG - a tool that connects C/C++ programs with high-level programming languages
+    apt install swig
+```
+
+Having those do
+
+```bash
+    make python
+```
 
 ## Usage
 
