@@ -61,7 +61,6 @@ export:
 	@for i in `cat src/sim5lib.c | grep -e '^\#include ".*.c"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat src/$$i >> lib/sim5lib.c; done
 	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//;s/    / /' lib/sim5lib.c
 	$(CC) -c lib/sim5lib.c -o lib/sim5lib.o $(CFLAGS) $(LFLAGS)
-	@rm lib/sim5lib.o
 
 
 debug: lib
