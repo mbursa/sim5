@@ -28,6 +28,7 @@ DEVICEFUNC double elliptic_f(double phi, double m);
 DEVICEFUNC double elliptic_f_cos(double cos_phi, double m);
 DEVICEFUNC double elliptic_f_sin(double sin_phi, double m);
 DEVICEFUNC double elliptic_pi_complete(double n, double m);
+DEVICEFUNC double elliptic_pi_cos(double cos_phi, double n, double m);
 DEVICEFUNC double elliptic_pi_sin(double sin_phi, double n, double m);
 DEVICEFUNC sim5complex elliptic_pi(double phi, double n, double m);
 DEVICEFUNC INLINE double jacobi_isn(double z, double m);
