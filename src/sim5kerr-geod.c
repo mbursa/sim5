@@ -68,7 +68,7 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
 
     if (beta == 0.0) beta = +1e-6;
 
-    g->a = max(1e-4, a);
+    g->a = fmax(1e-4, a);
     g->incl  = i;
     g->cos_i = cos(i);
     g->alpha = alpha;
@@ -123,7 +123,7 @@ int geodesic_init_src(double a, double r, double m, double k[4], int ppc, geodes
     double l,q;
     photon_motion_constants(a, r, m, k, &l, &q);
 
-    g->a = max(1e-8, a);
+    g->a = fmax(1e-8, a);
     g->l = l;
     g->q = q;
 
@@ -906,7 +906,7 @@ void geodesic_follow(geodesic *g, double step, double *P, double *r, double *m, 
     const double MAXSTEP_FACTOR = 5e-2;
 
     do {
-        double truestep = step/fabs(step) * min(fabs(step), MAXSTEP_FACTOR*sqrt(*r));
+        double truestep = step/fabs(step) * fmin(fabs(step), MAXSTEP_FACTOR*sqrt(*r));
         (*P) = (*P) + truestep/(sqr(*r)+sqr((g->a)*(*m)));   // d(afp)/d(x) = r^2 + a^2*m^2
         (*r) = geodesic_position_rad(g, *P);
         (*m) = geodesic_position_pol(g, *P);

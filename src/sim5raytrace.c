@@ -159,10 +159,10 @@ void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd)
     // limit step into a reasonable iterval
     // smaller step must be used close to black hole (radial term: 0.05*x[1])
     // smaller step must be used close to polar axis (axial term: pow(1-x[2],0.5))
-    //double stepsize = min(0.05*x[1]*pow(1.-x[2],0.5), *step);
+    //double stepsize = fmin(0.05*x[1]*pow(1.-x[2],0.5), *step);
     //if (dl < 1e-4) dl = 1e-4;
     double stepsize = rtd->step_epsilon/(fabs(dk[0])/(fabs(k[0])+TINY) + fabs(dk[1])/(fabs(k[1])+TINY) + fabs(dk[2])/(fabs(k[2])+TINY) + fabs(dk[3])/(fabs(k[3])+TINY) + TINY);
-    double dl = min(*step, stepsize);
+    double dl = fmin(*step, stepsize);
     if (dl < 1e-3) dl = 1e-3;
 
     rtd->pass++;
@@ -214,7 +214,7 @@ void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd)
     // precision check
     kt = kp[0]*m.g00 + kp[3]*m.g03;
     kk = fabs(dotprod(kp, kp, &m));
-    rtd->error = max(frac_error(kt,rtd->kt), kk);
+    rtd->error = fmax(frac_error(kt,rtd->kt), kk);
     if ((k_frac_error>raytrace_max_error*1e-2) || (rtd->error>raytrace_max_error*1e-2)) {
         vect_copy(x_orig, x);
         vect_copy(k_orig, k);

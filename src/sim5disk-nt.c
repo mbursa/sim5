@@ -262,7 +262,7 @@ double disk_nt_ell(double r)
 //! @result Specific angular momentum in [g.u.].
 {
     double a = disk_nt_bh_spin;
-    r = max(disk_nt_disk_rms, r);
+    r = fmax(disk_nt_disk_rms, r);
     return (r*r-2.*a*sqrt(r)+a*a) / (sqrt(r)*r-2.*sqrt(r)+a);
 }
 

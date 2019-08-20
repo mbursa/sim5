@@ -430,7 +430,7 @@ void vector_norm_to_null(double V[4], double V0, sim5metric* m)
         a = V[1]*V[1]*m->g11 + V[2]*V[2]*m->g22 + V[3]*V[3]*m->g33;
         b = V0*V[3]*m->g03;  // this actually is b/2, that is why the formula for roots is altered too
         c = V0*V0*m->g00;
-        alpha = max(-b/a+sqrt(b*b-a*c)/a, -b/a-sqrt(b*b-a*c)/a);
+        alpha = fmax(-b/a+sqrt(b*b-a*c)/a, -b/a-sqrt(b*b-a*c)/a);
     } else {
         a = V[1]*V[1] + V[2]*V[2] + V[3]*V[3];
         c = -V0*V0;

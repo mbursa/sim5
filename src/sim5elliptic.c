@@ -22,7 +22,7 @@ double rf(double x, double y, double z)
 	const double C1=1.0/24.0, C2=0.1, C3=3.0/44.0, C4=1.0/14.0;
 	double alamb,ave,delx,dely,delz,e2,e3,sqrtx,sqrty,sqrtz,xt,yt,zt;
 
-	if ((min(min(x,y),z) < 0.0) || (min(min(x+y,x+z),y+z) < rfTINY) || (max(max(x,y),z) > rfBIG)) {
+	if ((fmin(fmin(x,y),z) < 0.0) || (fmin(fmin(x+y,x+z),y+z) < rfTINY) || (fmax(fmax(x,y),z) > rfBIG)) {
         #ifndef CUDA
 		warning("%e/%e/%e\n", x,y,z);
 		error("invalid arguments in rf %e/%e/%e", x,y,z);
@@ -45,7 +45,7 @@ double rf(double x, double y, double z)
 		delx=(ave-xt)/ave;
 		dely=(ave-yt)/ave;
 		delz=(ave-zt)/ave;
-	} while (max(max(fabs(delx),fabs(dely)),fabs(delz)) > ERRTOL);
+	} while (fmax(fmax(fabs(delx),fabs(dely)),fabs(delz)) > ERRTOL);
 	e2=delx*dely-delz*delz;
 	e3=delx*dely*delz;
 	return (1.0+(C1*e2-C2-C3*e3)*e2+C4*e3)/sqrt(ave);
@@ -61,7 +61,7 @@ double rd(double x, double y, double z) {
 	const double C1=3.0/14.0, C2=1.0/6.0, C3=9.0/22.0, C4=3.0/26.0, C5=0.25*C3, C6=1.5*C4;
 	double alamb,ave,delx,dely,delz,ea,eb,ec,ed,ee,fac,sqrtx,sqrty,sqrtz,sum,xt,yt,zt;
 
-	if ((min(x,y) < 0.0) || (min(x+y,z) < rdTINY) || (max(max(x,y),z) > rdBIG)) {
+	if ((fmin(x,y) < 0.0) || (fmin(x+y,z) < rdTINY) || (fmax(fmax(x,y),z) > rdBIG)) {
         #ifndef CUDA
 		fprintf(stderr, "%e/%e/%e\n", x,y,z);
 		error("invalid arguments in rd (%e/%e/%e)\n", x,y,z);
@@ -87,7 +87,7 @@ double rd(double x, double y, double z) {
 		delx=(ave-xt)/ave;
 		dely=(ave-yt)/ave;
 		delz=(ave-zt)/ave;
-	} while (max(max(fabs(delx),fabs(dely)),fabs(delz)) > ERRTOL);
+	} while (fmax(fmax(fabs(delx),fabs(dely)),fabs(delz)) > ERRTOL);
 	ea=delx*dely;
 	eb=delz*delz;
 	ec=ea-eb;
@@ -148,8 +148,8 @@ double rj(double x, double y, double z, double p) {
 		C5=0.75*C3, C6=1.5*C4, C7=0.5*C2, C8=C3+C3;
 	double a,alamb,alpha,ans,ave,b,beta,delp,delx,dely,delz,ea,eb,ec,ed,ee,
 		fac,pt,rcx,rho,sqrtx,sqrty,sqrtz,sum,tau,xt,yt,zt;
-	if ((min(min(x,y),z) < 0.0) || (min(min(x+y,x+z),min(y+z,fabs(p))) < rjTINY) ||
-	  (max(max(x,y),max(z,fabs(p))) > rjBIG)) {
+	if ((fmin(fmin(x,y),z) < 0.0) || (fmin(fmin(x+y,x+z),fmin(y+z,fabs(p))) < rjTINY) ||
+	  (fmax(fmax(x,y),fmax(z,fabs(p))) > rjBIG)) {
         #ifndef CUDA
 		fprintf(stderr, "WRN: invalid arguments in rj (%e/%e/%e/%e)\n", x,y,z,p);
         #endif
@@ -165,8 +165,8 @@ double rj(double x, double y, double z, double p) {
 		zt=z;
 		pt=p;
 	} else {
-		xt=min(min(x,y),z);
-		zt=max(max(x,y),z);
+		xt=fmin(fmin(x,y),z);
+		zt=fmax(fmax(x,y),z);
 		yt=x+y+z-xt-zt;
 		a=1.0/(yt-p);
 		b=a*(zt-yt)*(yt-xt);
@@ -193,7 +193,7 @@ double rj(double x, double y, double z, double p) {
 		dely=(ave-yt)/ave;
 		delz=(ave-zt)/ave;
 		delp=(ave-pt)/ave;
-	} while (max(max(fabs(delx),fabs(dely)),max(fabs(delz),fabs(delp))) > ERRTOL);
+	} while (fmax(fmax(fabs(delx),fabs(dely)),fmax(fabs(delz),fabs(delp))) > ERRTOL);
 	ea=delx*(dely+delz)+dely*delz;
 	eb=delx*dely*delz;
 	ec=delp*delp;

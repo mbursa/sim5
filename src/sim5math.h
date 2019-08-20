@@ -38,9 +38,6 @@
 #define sqr4(a)  ((a) * (a) * (a) * (a))                        //!< quartic power of a
 #define sqrt3(a) cbrt(a)                                        //!< cubic root of a
 #define sqrt4(a) pow(a,0.25)                                    //!< quartic root of a
-#define max(a,b) ((a) > (b) ? (a) : (b))                        //!< maximum of two values
-#define min(a,b) ((a) < (b) ? (a) : (b))                        //!< minimum of two values
-#define minmax(val, vmin, vmax) min(vmax,max(val,vmin))         //!< values within limits
 #define odd(a) ((a%2==1)?1:0)                                   //!< is odd number
 #define sign(a) ((a) >= 0.0 ? (+1.0) : (-1.0))                  //!< positive or negative
 //#define hypot(a,b) (sqrt((a)*(a) + (b)*(b)))                    //!< 

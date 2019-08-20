@@ -125,7 +125,7 @@ void* array_realloc(void* array, size_t new_capacity)
                       + sizeof(size_t);            // space for info about stored element count
     
     (*capa)  = new_capacity;
-    (*count) = min(*count, new_capacity);
+    (*count) = fmin(*count, new_capacity);
 
     void* src_ptr = (array-3*sizeof(size_t));
     src_ptr = realloc(src_ptr, size_total);
