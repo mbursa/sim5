@@ -51,11 +51,6 @@ extern "C" {
 #define inrange(a, min, max) (((a)>=(min))&&((a)<=(max)))       //!< value in range
 
 
-#define rand  sim5rand()                                        //!< integer random number (long long int)
-#define urand sim5urand()                                       //!< random number from 0 to 1 (double)
-
-
-
 
 #ifdef CUDA
     #define ComplexI    makeComplex(0.0,1.0)                    //!< complex unit (sqrt(-1))
@@ -64,7 +59,7 @@ extern "C" {
     #include <complex.h>
     #undef I
     #define ComplexI _Complex_I                                 //!< complex unit (sqrt(-1))
-    typedef double complex sim5complex;                         //!< proxy to built-in "complex double" type
+    typedef double _Complex sim5complex;                         //!< proxy to built-in "complex double" type
 #endif
 
 

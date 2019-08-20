@@ -16,19 +16,19 @@
 extern "C" {
 #endif
 
-#define CLASS_RR               40       // four real roots; allowed region r > r1 (endpoints at infinity)
-#define CLASS_RR_DBL           41       // four real roots, one double root(r3=r4); allowed region r > r1 
-#define CLASS_RR_BH            42       // four real roots; allowed region r3 < r < r2 (endpoints under horizon)
-#define CLASS_RC                2       // two real & two complex roots; allowed region r > r1
-#define CLASS_CC                0       // four complex roots
+#define GEOD_TYPE_RR               40       // four real roots; allowed region r > r1 (endpoints at infinity)
+#define GEOD_TYPE_RR_DBL           41       // four real roots, one double root(r3=r4); allowed region r > r1 
+#define GEOD_TYPE_RR_BH            42       // four real roots; allowed region r3 < r < r2 (endpoints under horizon)
+#define GEOD_TYPE_RC                2       // two real & two complex roots; allowed region r > r1
+#define GEOD_TYPE_CC                0       // four complex roots
 
 
 #define GD_OK                           0
 #define GD_ERROR_Q_ZERO                 1
 #define GD_ERROR_BOUND_GEODESIC         2
 #define GD_ERROR_UNKNOWN_SOLUTION       3
-#define GD_ERROR_CLASS_RR_DOUBLE        4
-#define GD_ERROR_CLASS_CC               5
+#define GD_ERROR_TYPE_RR_DOUBLE         4
+#define GD_ERROR_TYPE_CC                5
 #define GD_ERROR_Q_RANGE                7
 #define GD_ERROR_MUPLUS_RANGE           8
 #define GD_ERROR_MU0_RANGE              9
@@ -52,14 +52,14 @@ typedef struct geodesic {
 	double q;                                // motion constant: L / E_\infty^2 (Carter's constant)
 	sim5complex r1,r2,r3,r4;                 // roots of R-integral
 	int    nrr;                              // number of real roots of R integral
-	int    class;                            // trajectory class (see CLASS_XXX constants)
+	int    type;                             // geodesic type (see GEOD_TYPE_XXX constants)
 	double m2p,m2m,mm,mK;                    // roots and coeficients of T-integral
 
-	double rp;                               // radius of radial turning point (pericenter); this is either r1 or r2 (for CLASS_RR_BH)
-	double dmdp_inf;                         // sign of the derivative d(m)/d(P) at infinity (CLASS_RR,CLASS_RC); this may be-1.0 or +1.0
+	double rp;                               // radius of radial turning point (pericenter); this is either r1 or r2 (for GEOD_TYPE_RR_BH)
+	double dmdp_inf;                         // sign of the derivative d(m)/d(P) at infinity (GEOD_TYPE_RR,GEOD_TYPE_RC); this may be-1.0 or +1.0
 
 	// evaluation of specific motion integrals
-	double Rpc;                              // value of R-integral \int[r1..infty] (CLASS_RR,CLASS_RC) or \int[r3..r2] (for CLASS_RR_BH)
+	double Rpc;                              // value of R-integral \int[r1..infty] (GEOD_TYPE_RR,GEOD_TYPE_RC) or \int[r3..r2] (for GEOD_TYPE_RR_BH)
 	double Tpp;                              // value of T-integral \int[-\mu_plus..\mu_plus]
 	double Tip;                              // value of T-integral \int[cos_i..\mu_plus]
 

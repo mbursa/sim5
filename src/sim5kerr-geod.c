@@ -204,8 +204,8 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
     if (r == g->rp) return g->Rpc;
 
 
-    switch (g->class) {
-        case CLASS_RR:
+    switch (g->type) {
+        case GEOD_TYPE_RR:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -214,13 +214,13 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
             R  = 2./sqrt((r1-r3)*(r2-r4)) * jacobi_isn(sqrt(((r2-r4)*(r-r1))/((r1-r4)*(r-r2))), mm);
             return (ppc) ? g->Rpc + R : g->Rpc - R;
         
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_P_int): not implemented for CLASS_RR_DBL");
+            error("(geodesic_P_int): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             return NAN;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -229,7 +229,7 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
             R  = 2./sqrt((r1-r3)*(r2-r4)) * jacobi_isn(sqrt((r1-r3)/(r2-r3)*(r2-r)/(r1-r)), mm);
             return (ppc) ? g->Rpc + R : g->Rpc - R;
 
-        case CLASS_RC:
+        case GEOD_TYPE_RC:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             u  = creal(g->r3);
@@ -242,7 +242,7 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
             // RC case has no turning point, so P can be 0 < P < Rpc
             return g->Rpc-R;
 
-        case CLASS_CC:
+        case GEOD_TYPE_CC:
             r1 = creal(g->r1);  //b1
             r2 = creal(g->r3);  //b2
             r3 = cimag(g->r1);  //a1
@@ -308,8 +308,8 @@ double geodesic_position_rad(geodesic *g, double P)
     }
     if (P == g->Rpc) return g->rp;
 
-    switch (g->class) {
-        case CLASS_RR:
+    switch (g->type) {
+        case GEOD_TYPE_RR:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -319,19 +319,19 @@ double geodesic_position_rad(geodesic *g, double P)
             double sn2 = pow( jacobi_sn(x4,m4), 2.0);
             return ( r1*(r2-r4)-r2*(r1-r4)*sn2 ) / ( r2-r4-(r1-r4)*sn2 );
 
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_position_rad): not implemented for CLASS_RR_DBL");
+            error("(geodesic_position_rad): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             return NAN;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             #ifndef CUDA
-            error("(geodesic_position_rad): not implemented for CLASS_RR_BH");
+            error("(geodesic_position_rad): not implemented for GEOD_TYPE_RR_BH");
             #endif
             return NAN;
 
-        case CLASS_RC:
+        case GEOD_TYPE_RC:
             // RC case has no turning point, so P cannot be larger than Rpc
             if (P > g->Rpc) return NAN;
             r1 = creal(g->r1);
@@ -345,9 +345,9 @@ double geodesic_position_rad(geodesic *g, double P)
             //fprintf(stderr, "r-RC: mm=%.4e z=%.4e icn=%.4e  r=%.4e\n", m2, sqrt(A*B)*(g->Rpc-P), cn, (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn ));
             return (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn );
         
-        case CLASS_CC:
+        case GEOD_TYPE_CC:
             #ifndef CUDA
-            error("(geodesic_position_rad): not implemented for CLASS_CC");
+            error("(geodesic_position_rad): not implemented for GEOD_TYPE_CC");
             #endif
             return NAN;
     }
@@ -372,11 +372,11 @@ double geodesic_position_pol(geodesic *g, double P)
 {
     double sign_dm, T;
 
-    switch (g->class) {
+    switch (g->type) {
         // trajectories that go to infinity
-        case CLASS_RR:
-        case CLASS_RC:
-        case CLASS_CC:
+        case GEOD_TYPE_RR:
+        case GEOD_TYPE_RC:
+        case GEOD_TYPE_CC:
             // sign_dm = d(m)/d(P)
             // at infinity, d(m)/d(P) > 0 if beta>0, and d(m)/d(P) < 0 if beta<0
             sign_dm = (g->beta>=0.0) ? +1.0 : -1.0;
@@ -389,15 +389,15 @@ double geodesic_position_pol(geodesic *g, double P)
             }
             return -sign_dm*theta_inv(P-T);
 
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_RR_DBL");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             return NAN;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_BH");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_BH");
             #endif
             return NAN;
     }
@@ -422,11 +422,11 @@ double geodesic_position_pol_sign_k_theta(geodesic *g, double P)
 {
     double sign_dm, T;
 
-    switch (g->class) {
+    switch (g->type) {
         // trajectories that go to infinity
-        case CLASS_RR:
-        case CLASS_RC:
-        case CLASS_CC:
+        case GEOD_TYPE_RR:
+        case GEOD_TYPE_RC:
+        case GEOD_TYPE_CC:
             // sign_dm = d(m)/d(P)
             // at infinity, d(m)/d(P) > 0 if beta>0, and d(m)/d(P) < 0 if beta<0
             sign_dm = (g->beta>=0.0) ? +1.0 : -1.0;
@@ -439,15 +439,15 @@ double geodesic_position_pol_sign_k_theta(geodesic *g, double P)
             // dk[2] = -d(m)
             return (sign_dm<0) ? +1 : -1;
 
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_RR_DBL");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             return NAN;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_BH");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_BH");
             #endif
             return NAN;
     }
@@ -483,9 +483,9 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
     double rm   = 1. - sqrt(1.-a2);
     double r1, r2, r3, r4, A, B;
 
-    switch (g->class) {
+    switch (g->type) {
         // trajectories that go to infinity
-        case CLASS_RR:
+        case GEOD_TYPE_RR:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -495,19 +495,19 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
             phi += 1./sqrt(1.-a2) * ( A*(g->a*rp-g->l*a2/2.) - B*(g->a*rm-g->l*a2/2.) );
             break;
 
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_position_azm): not implemented for CLASS_RR_DBL");
+            error("(geodesic_position_azm): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             return NAN;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             #ifndef CUDA
-            error("(geodesic_position_azm): not implemented for CLASS_RR_BH");
+            error("(geodesic_position_azm): not implemented for GEOD_TYPE_RR_BH");
             #endif
             return NAN;
 
-        case CLASS_RC:
+        case GEOD_TYPE_RC:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             A = integral_R_rp_cc2_inf(r1, r2, g->r3, rp, r);
@@ -516,9 +516,9 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
             //if (isnan(phi)) fprintf(stderr,"phi nan already 2 (%e %e)\n",g->a,rm);
             break;
 
-        case CLASS_CC:
+        case GEOD_TYPE_CC:
             #ifndef CUDA
-            error("(geodesic_position_azm): not implemented for CLASS_CC");
+            error("(geodesic_position_azm): not implemented for GEOD_TYPE_CC");
             #endif
             return NAN;
     }
@@ -610,9 +610,9 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
     if (r1 < g->rp) error("geodesic_timedelay: r1 < r_p (%e/%e)", r1, g->rp);
     if (r2 < g->rp) error("geodesic_timedelay: r2 < r_p (%e/%e)", r2, g->rp);
 
-    switch (g->class) {
+    switch (g->type) {
         // trajectories that go to infinity
-        case CLASS_RR:
+        case GEOD_TYPE_RR:
             s = (((P1 > g->Rpc)&&(P2 < g->Rpc)) || ((P1 < g->Rpc)&&(P2 > g->Rpc))) ? +1 : -1;
             R0 = integral_R_r0_re(ra, rb, rc, rd, r1)     + s*integral_R_r0_re(ra, rb, rc, rd, r2);
             R1 = integral_R_r1_re(ra, rb, rc, rd, r1)     + s*integral_R_r1_re(ra, rb, rc, rd, r2);
@@ -627,19 +627,19 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
             //fprintf(stderr,"R0=%.3e R1=%.3e R2=%.3e RA=%.3e RB=%.3e A=%.3e B=%.3e dt=%.3e \n", R0,R1,R2,RA,RB,A,B,time);
             break;
 
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_timedelay): not implemented for CLASS_RR_DBL");
+            error("(geodesic_timedelay): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             return NAN;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             #ifndef CUDA
-            error("(geodesic_timedelay): not implemented for CLASS_RR_BH");
+            error("(geodesic_timedelay): not implemented for GEOD_TYPE_RR_BH");
             #endif
             return NAN;
 
-        case CLASS_RC:
+        case GEOD_TYPE_RC:
             R0 = integral_R_r0_cc(ra, rb, g->r3, r1) -integral_R_r0_cc(ra, rb, g->r3, r2);
             R1 = (r1<r2) ? integral_R_r1_cc(ra, rb, g->r3, r1, r2) : integral_R_r1_cc(ra, rb, g->r3, r2, r1);
             R2 = (r1<r2) ? integral_R_r2_cc(ra, rb, g->r3, r1, r2) : integral_R_r2_cc(ra, rb, g->r3, r2, r1);
@@ -653,9 +653,9 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
             //fprintf(stderr,"R0=%.3e R1=%.3e R2=%.3e RA=%.3e RB=%.3e A=%.3e B=%.3e dt=%.3e \n", R0,R1,R2,RA,RB,A,B,time);
             break;
 
-        case CLASS_CC:
+        case GEOD_TYPE_CC:
             #ifndef CUDA
-            error("(geodesic_timedelay): not implemented for CLASS_CC");
+            error("(geodesic_timedelay): not implemented for GEOD_TYPE_CC");
             #endif
             return NAN;
     }
@@ -746,11 +746,11 @@ double geodesic_dm_sign(geodesic *g, double P)
 {
     double sign_dm, T;
 
-    switch (g->class) {
+    switch (g->type) {
         // trajectories that go to infinity
-        case CLASS_RR:
-        case CLASS_RC:
-        case CLASS_CC:
+        case GEOD_TYPE_RR:
+        case GEOD_TYPE_RC:
+        case GEOD_TYPE_CC:
             // sign_dm = d(m)/d(P)
             // at infinity, d(m)/d(P) > 0 if beta>0, and d(m)/d(P) < 0 if beta<0
             sign_dm = (g->beta>=0.0) ? +1.0 : -1.0;
@@ -763,15 +763,15 @@ double geodesic_dm_sign(geodesic *g, double P)
             }
             return sign_dm;
 
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_RR_DBL");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             return NAN;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_BH");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_BH");
             #endif
             return NAN;
     }
@@ -812,25 +812,25 @@ void geodesic_momentum(geodesic *g, double P, double r, double m, double k[])
         m = geodesic_position_pol(g, P);
     }
 
-    switch (g->class) {
+    switch (g->type) {
         // trajectories that go to infinity
-        case CLASS_RR:
-        case CLASS_RC:
-        case CLASS_CC:
+        case GEOD_TYPE_RR:
+        case GEOD_TYPE_RC:
+        case GEOD_TYPE_CC:
             dm = geodesic_dm_sign(g, P);
             photon_momentum(g->a, r, m, g->l, g->q, (P<g->Rpc?-1:+1), dm, k);
             return;
             
-        case CLASS_RR_DBL:
+        case GEOD_TYPE_RR_DBL:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_RR_DBL");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_RR_DBL");
             #endif
             k[0]=k[1]=k[2]=k[3]=NAN;
             return;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             #ifndef CUDA
-            error("(geodesic_dm_sign): not implemented for CLASS_BH");
+            error("(geodesic_dm_sign): not implemented for GEOD_TYPE_BH");
             #endif
             k[0]=k[1]=k[2]=k[3]=NAN;
             return;
@@ -1014,10 +1014,10 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
     g->r4 = -B/2. - .5*csqrt(makeComplex(-A+2.*D+4.*C/B,0.0));
     sort_roots(&g->nrr, &g->r1, &g->r2, &g->r3, &g->r4);
 
-    // trajectory class
+    // trajectory type
     switch (g->nrr) {
         case 4:
-            g->class = CLASS_RR;
+            g->type = GEOD_TYPE_RR;
             // r0 can only be between r3 and r2; or it can be above r1
             // anything else is an error
             if ((r0<creal(g->r3)) || ((r0>creal(g->r2)) && (r0<creal(g->r1)))) {
@@ -1026,20 +1026,20 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
             }
             // if r1 and r2 are close to each other, it is a double root solution
             if (fabs(creal(g->r1)-creal(g->r2)) < 1e-8) {
-                g->class = CLASS_RR_DBL;
-                if (error) *error = GD_ERROR_CLASS_RR_DOUBLE;
+                g->type = GEOD_TYPE_RR_DBL;
+                if (error) *error = GD_ERROR_TYPE_RR_DOUBLE;
                 return FALSE;
             }
             // if r0 is between r3 and r2, it is an inner solution
             if ((r0>=creal(g->r3)) && (r0<=creal(g->r2))) {
-                g->class = CLASS_RR_BH;
+                g->type = GEOD_TYPE_RR_BH;
             }
             break;
         case 2:
-            g->class = CLASS_RC;
+            g->type = GEOD_TYPE_RC;
             break;
         case 0:
-            g->class = CLASS_CC;
+            g->type = GEOD_TYPE_CC;
             break;
         default:
             if (error) *error = GD_ERROR_UNKNOWN_SOLUTION;
@@ -1048,8 +1048,8 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
 
     // set radius of turning point and integral value at turning point
     double r1,r2,r3,r4,u,v,mm;
-    switch (g->class) {
-        case CLASS_RR:
+    switch (g->type) {
+        case GEOD_TYPE_RR:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -1059,7 +1059,7 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
             g->Rpc = 2./sqrt((r1-r3)*(r2-r4)) * jacobi_isn(sqrt((r2-r4)/(r1-r4)), mm);
             break;
 
-        case CLASS_RR_BH:
+        case GEOD_TYPE_RR_BH:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -1069,7 +1069,7 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
             g->Rpc = 2./sqrt((r1-r3)*(r2-r4)) * elliptic_k(mm); //ellipticK(mm) = jacobi_isn(1, mm)
             break;
 
-        case CLASS_RC:
+        case GEOD_TYPE_RC:
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             u  = creal(g->r3);
@@ -1081,7 +1081,7 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
             g->Rpc = 1./sqrt(A*B) * jacobi_icn((A-B)/(A+B), mm);
             break;
 
-        case CLASS_CC:
+        case GEOD_TYPE_CC:
             r1 = creal(g->r1);   //b1
             r2 = creal(g->r3);   //b2
             r3 = cimag(g->r1);   //a1
