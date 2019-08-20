@@ -170,13 +170,15 @@ void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd)
     // step 1: update of position (Dolence+09, Eq.14a)
     // - remember that x[2] contains cos(theta); the substitution method 
     //   with dm/d\theta=-sin(theta) factor introduces unnecessary inacuracy
-    xp[0] = x[0] + k[0]*dl + 0.5*dk[0]*dl*dl;
-    xp[1] = x[1] + k[1]*dl + 0.5*dk[1]*dl*dl;
-    xp[2] = cos(acos(x[2]) +(k[2]*dl + 0.5*dk[2]*dl*dl));
-    xp[3] = x[3] + k[3]*dl + 0.5*dk[3]*dl*dl;
+    double half_dl  = 0.5 * dl;
+    double half_dl2 = 0.5 * dl * dl;
+    xp[0] = x[0] + k[0]*dl + dk[0]*half_dl2;
+    xp[1] = x[1] + k[1]*dl + dk[1]*half_dl2;
+    xp[2] = cos(acos(x[2]) +(k[2]*dl + dk[2]*half_dl2));
+    xp[3] = x[3] + k[3]*dl + dk[3]*half_dl2;
 
     // this is addition of first two terms of Eq.14d (Dolence+09) 
-    for (i=0;i<4;i++) k[i] += 0.5*dk[i]*dl;
+    for (i=0;i<4;i++) k[i] += dk[i]*half_dl;
 
     // update metric and connection
     if (rtd->opt_gr) {
@@ -188,7 +190,7 @@ void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd)
     }; 
 
     // step 2: estimate new value for k and f (Dolence+09, Eq.14b)
-    for (i=0;i<4;i++) kp[i] = k[i] + 0.5*dk[i]*dl;
+    for (i=0;i<4;i++) kp[i] = k[i] + dk[i]*half_dl;
 
 
     // step 3: iteratively improve estimate of momentum based on its derivative
@@ -200,9 +202,9 @@ void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd)
         for (i=0;i<4;i++) {
             // Dolence+09, Eq. (14c,d)
             #ifdef CUDA
-            kp[i] = k[i] + 0.5*k_deriv(i,kp_prev,G)*dl;
+            kp[i] = k[i] + k_deriv(i,kp_prev,G)*half_dl;
             #else
-            kp[i] = k[i] + 0.5*k_deriv(i,kp_prev)*dl;
+            kp[i] = k[i] + k_deriv(i,kp_prev)*half_dl;
             #endif
             k_frac_error += frac_error(kp[i],kp_prev[i]);
         }

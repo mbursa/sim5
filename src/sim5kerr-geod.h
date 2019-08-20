@@ -12,6 +12,9 @@
 #ifndef _SIM5KERR_GEOD_H
 #define _SIM5KERR_GEOD_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define CLASS_RR               40       // four real roots; allowed region r > r1 (endpoints at infinity)
 #define CLASS_RR_DBL           41       // four real roots, one double root(r3=r4); allowed region r > r1 
@@ -80,5 +83,8 @@ DEVICEFUNC double geodesic_find_midplane_crossing(geodesic *g, int order);
 DEVICEFUNC void geodesic_follow(geodesic *g, double step, double *P, double *r, double *m, int *status);
 DEVICEFUNC double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P2, double r2, double m2);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

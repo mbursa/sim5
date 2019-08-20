@@ -12,6 +12,9 @@
 #ifndef _SIM5RADIATION_H
 #define _SIM5RADIATION_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct stokes_params {
   double i;
@@ -32,5 +35,8 @@ DEVICEFUNC INLINE double blackbody_photons(double T, double hardf, double cos_mu
 DEVICEFUNC double blackbody_photons_total(double T, double hardf);
 DEVICEFUNC double blackbody_photon_energy_random(double T);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

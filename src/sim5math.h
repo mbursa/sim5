@@ -17,7 +17,9 @@
 #ifndef _SIM5MATH_H
 #define _SIM5MATH_H
 
-//#include "sim5config.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 //#ifdef SIM5_SINGLE_PREC_MATH
@@ -89,6 +91,10 @@ DEVICEFUNC INLINE double sim5urand();
 DEVICEFUNC INLINE sim5complex makeComplex(double r, double i);
 DEVICEFUNC INLINE sim5complex nullComplex();
 //! \endcond
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

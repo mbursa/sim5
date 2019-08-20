@@ -16,6 +16,10 @@
 
 #ifndef CUDA
 
+#ifdef __cplusplus
+extern "C" {
+#endif 
+
 typedef struct sim5distrib {
     double x_min;
     double x_max;
@@ -30,6 +34,10 @@ typedef struct sim5distrib {
 DEVICEFUNC void distrib_init(sim5distrib* d, double(*pdf)(double), double x_min, double x_max, int N);
 DEVICEFUNC void distrib_done(sim5distrib* d);
 DEVICEFUNC INLINE double distrib_hit(sim5distrib* d);
+
+#ifdef __cplusplus
+}
+#endif 
 
 #endif //CUDA
 

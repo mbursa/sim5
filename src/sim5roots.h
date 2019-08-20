@@ -12,6 +12,14 @@
 #ifndef _SIM5ROOTFINDING_H
 #define _SIM5ROOTFINDING_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 long rtbis(double x1, double x2, double xacc, double (*fx)(double), double* result);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

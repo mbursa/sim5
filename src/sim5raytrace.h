@@ -12,6 +12,11 @@
 #ifndef _SIM5_RAYTRACE_H
 #define _SIM5_RAYTRACE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 // options for raytracing
 #define RTOPT_NONE              0         // option for default actions
 #define RTOPT_FLAT              1         // assumes Minkowski (flat) metric instead of Kerr
@@ -46,6 +51,10 @@ void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd);
 
 DEVICEFUNC
 double raytrace_error(double x[4], double k[4], raytrace_data* rtd);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

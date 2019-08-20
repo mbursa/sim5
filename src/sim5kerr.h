@@ -7,6 +7,14 @@
 //************************************************************************
 
 
+
+#ifndef _SIM5KERR_H
+#define _SIM5KERR_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct sim5metric {
     double a,r,m;
     double g00;
@@ -157,4 +165,8 @@ double fourvelocity_norm(double U1, double U2, double U3, sim5metric *m);
 DEVICEFUNC 
 void fourvelocity(double U1, double U2, double U3, sim5metric *m, double U[]);
 
+#ifdef __cplusplus
+}
+#endif
 
+#endif

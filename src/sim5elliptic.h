@@ -13,12 +13,22 @@
 #define _SIM5ELLIPTIC_H
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+DEVICEFUNC double rf(double x, double y, double z);
+DEVICEFUNC double rd(double x, double y, double z);
+DEVICEFUNC double rc(double x, double y);
+DEVICEFUNC double rj(double x, double y, double z, double p);
 DEVICEFUNC INLINE double elliptic_k(double m);
+DEVICEFUNC double elliptic_e_sin(double sin_phi, double m);
+DEVICEFUNC double elliptic_e_cos(double cos_phi, double m);
 DEVICEFUNC double elliptic_f(double phi, double m);
 DEVICEFUNC double elliptic_f_cos(double cos_phi, double m);
 DEVICEFUNC double elliptic_f_sin(double sin_phi, double m);
 DEVICEFUNC double elliptic_pi_complete(double n, double m);
+DEVICEFUNC double elliptic_pi_sin(double sin_phi, double n, double m);
 DEVICEFUNC sim5complex elliptic_pi(double phi, double n, double m);
 DEVICEFUNC INLINE double jacobi_isn(double z, double m);
 DEVICEFUNC INLINE double jacobi_icn(double z, double m);
@@ -44,5 +54,8 @@ DEVICEFUNC double integral_T_m0(double a2, double b2, double X);
 DEVICEFUNC double integral_T_m2(double a2, double b2, double X);
 DEVICEFUNC double integral_T_mp(double a2, double b2, double p, double X);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

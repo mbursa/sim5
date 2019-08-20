@@ -80,7 +80,7 @@ void sort_array_f(float *array, int N)
 
 
 #ifndef CUDA
-void* array_alloc(size_t capacity, size_t element_size)
+void* sim5_array_alloc(size_t capacity, size_t element_size)
 {
     size_t size_total = element_size*capacity    // space allocated for elements
                       + sizeof(size_t)           // space for info about size of stored elements 
@@ -106,14 +106,14 @@ void* array_alloc(size_t capacity, size_t element_size)
 }
 
 
-void array_free(void* ptr)
+void sim5_array_free(void* ptr)
 {
     ptr -= 3*sizeof(size_t);
     free(ptr);
 }
 
 
-void* array_realloc(void* array, size_t new_capacity)
+void* sim5_array_realloc(void* array, size_t new_capacity)
 {
     size_t* count = (size_t*)(array-1*sizeof(size_t));
     size_t* capa  = (size_t*)(array-2*sizeof(size_t));
@@ -134,7 +134,7 @@ void* array_realloc(void* array, size_t new_capacity)
 
 
 inline 
-long array_count(void* array)
+long sim5_array_count(void* array)
 {
     array -= 1*sizeof(size_t);
     return *(size_t*)(array);
@@ -142,7 +142,7 @@ long array_count(void* array)
 
 
 inline 
-long array_capa(void* array)
+long sim5_array_capa(void* array)
 {
     array -= 2*sizeof(size_t);
     return *(size_t*)(array);
@@ -150,14 +150,14 @@ long array_capa(void* array)
 
 
 inline 
-size_t array_esize(void* array)
+size_t sim5_array_esize(void* array)
 {
     array -= 3*sizeof(size_t);
     return *(size_t*)(array);
 }
 
 
-void array_push(void** array_ptr, const void* data)
+void sim5_array_push(void** array_ptr, const void* data)
 {
     void* array = *array_ptr;
 
@@ -166,7 +166,7 @@ void array_push(void** array_ptr, const void* data)
     size_t* esize = (size_t*)(array-3*sizeof(size_t));
 
     if (*count+1 > *capa) {
-        array = *array_ptr = array_realloc(array, 2*(*capa));
+        array = *array_ptr = sim5_array_realloc(array, 2*(*capa));
         count = (size_t*)(array-1*sizeof(size_t));
         capa  = (size_t*)(array-2*sizeof(size_t));
         esize = (size_t*)(array-3*sizeof(size_t));
@@ -179,34 +179,34 @@ void array_push(void** array_ptr, const void* data)
 
 
 inline
-void array_push_int(void** array_ptr, const int data)
+void sim5_array_push_int(void** array_ptr, const int data)
 {
-    array_push(array_ptr, &data);
+    sim5_array_push(array_ptr, &data);
 }
 
 
 inline
-void array_push_long(void** array_ptr, const long data)
+void sim5_array_push_long(void** array_ptr, const long data)
 {
-    array_push(array_ptr, &data);
+    sim5_array_push(array_ptr, &data);
 }
 
 
 inline
-void array_push_float(void** array_ptr, const float data)
+void sim5_array_push_float(void** array_ptr, const float data)
 {
-    array_push(array_ptr, &data);
+    sim5_array_push(array_ptr, &data);
 }
 
 
 inline
-void array_push_double(void** array_ptr, const double data)
+void sim5_array_push_double(void** array_ptr, const double data)
 {
-    array_push(array_ptr, &data);
+    sim5_array_push(array_ptr, &data);
 }
 
 
-int  array_exists(void* array, const void* data)
+int  sim5_array_exists(void* array, const void* data)
 {
     size_t count = *(size_t*)(array-1*sizeof(size_t));
     size_t esize = *(size_t*)(array-3*sizeof(size_t));
@@ -221,13 +221,13 @@ int  array_exists(void* array, const void* data)
 }
 
 inline
-void array_push_if_not_exists(void** array_ptr, const void* data)
+void sim5_array_push_if_not_exists(void** array_ptr, const void* data)
 {
-    if (!array_exists(*array_ptr, data)) array_push(array_ptr, data);
+    if (!sim5_array_exists(*array_ptr, data)) sim5_array_push(array_ptr, data);
 }
 
 
-void array_reverse(void* array)
+void sim5_array_reverse(void* array)
 {
     long count = *(size_t*)(array-1*sizeof(size_t));
     long esize = *(size_t*)(array-3*sizeof(size_t));

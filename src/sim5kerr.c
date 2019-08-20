@@ -163,44 +163,56 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
     double CC = 8.*c2*c2-8.*c2+1.;   //cos(4*theta)
     double a2 = a*a;
     double a4 = a2*a2;
+    double a2cc = a2*cc;
+    double a2c2 = a2*c2;
+    double a2cs = a2*cs;
+    double a4CC = a4*CC;
     double r2 = r*r;
     double r3 = r2*r;
-    double R  = pow(a2 + 2.*r2 + a2*cc, 2.);
+    double r4 = r2*r2;
+    double a2r2 = a2*r2;
+    double R  = pow(a2 + 2.*r2 + a2cc, 2.);
     double D  = r2 - 2.*r + a2;
-    double S  = r2 + a2*c2;
-    double S3 = S*S*S;
+    double S  = r2 + a2c2;
+    double S_1 = 1./S;
+    double S_3 = 1./(S*S*S);
+    double D_1 = 1./D;
+    double R_1 = 1./R;
+    double m_s = m/s;
+    double DR_1 = D_1*R_1;
+    double DS_1 = D_1*S_1;
+    double dbl_r2 = 2.*r2;
 
     memset(G, 0, 4*4*4*sizeof(double));
 
-
-    G[0][0][1] = 2.0 * (-2.)*(a2 + r2)*(a2 - 2.*r2 + a2*cc)/(D*R);
-    G[0][0][2] = 2.0 * (-8.)*a2*r*cs/R;
-    G[0][1][3] = 2.0 * (+2.)*a*s2*(a4 - 3.*a2*r2 - 6.*r2*r2 + a2*cc*(a2 - r2))/(D*R);
+    G[0][0][1] =  -4.0 * (a2 + r2)*(a2 - dbl_r2 + a2cc)*DR_1;
+    G[0][0][2] = -16.0 * a2cs*r*R_1;
+    G[0][1][3] =   4.0 * a*s2*(a4 - 3.*a2r2 - 6.*r4 + a2cc*(a2 - r2))*DR_1;
     G[0][2][3] = -G[0][0][2]*s2*a;
 
-    G[1][0][0] = -D*(a2*c2-r2)/S3;
-    G[1][0][3] = 2.0 * (a*D*(a2*c2-r2)*s2)/S3;
-    G[1][1][1] = (r*(a2 - r) + a2*(1. - r)*c2)/(D*S);
-    G[1][1][2] = 2.0 * (-a2*cs)/S;
-    G[1][2][2] = -r*D/S;
-    G[1][3][3] = -D*s2*(2.*c2*a2*r3 + r2*r3 + a4*c2*s2 + c2*c2*a4*r - a2*r2*s2)/S3; //-D*s2*(c2*(2.*a2*r*(a2 + r2) + a4*(1. - r)*s2) + r*(-a4 + r2*r2 + a2*(a2 - r)*s2))/S3;
+    G[1][0][0] = -D*(a2c2-r2)*S_3;
+    G[1][0][3] = 2.0 * (a*D*(a2c2-r2)*s2)*S_3;
+    G[1][1][1] = (r*(a2 - r) + a2*(1. - r)*c2)*DS_1;
+    G[1][1][2] = -2.0*a2cs*S_1;
+    G[1][2][2] = -r*D*S_1;
+    G[1][3][3] = -D*s2*(2.*a2c2*r3 + r2*r3 + a2*a2c2*s2 + a2c2*a2c2*r - a2r2*s2)*S_3;
 
-    G[2][0][0] = -2.*a2*r*cs/S3;
-    G[2][0][3] = 2.0 * 2.*a*r*cs*(a2 + r2)/S3;
-    G[2][1][1] = a2*cs/S/D;
-    G[2][1][2] = 2.0 * r/S;
+    G[2][0][0] = -2.*a2cs*r*S_3;
+    G[2][0][3] = 4.0 * a*r*cs*(a2 + r2)*S_3;
+    G[2][1][1] = a2cs*DS_1;
+    G[2][1][2] = 2.0 * r*S_1;
     G[2][2][2] = -G[2][1][1]*D;
-    G[2][3][3] = -2.*cs*(3.*a2*a4 + 10.*a4*r + 11.*a4*r2 + 16.*a2*r3 +
-            16.*a2*r2*r2 + 8.*r3*r3 + 4.*a2*(a2 + 2.*r2)*D*cc +
-            a4*D*CC)/(16.*S3);
+    G[2][3][3] = -0.125*cs*(3.*a2*a4 + 10.*a4*r + 11.*a4*r2 + 16.*a2*r3 +
+            16.*a2*r4 + 8.*r3*r3 + 4.*(a2 + dbl_r2)*D*a2cc +
+            a4CC*D)*S_3;
 
-    G[3][0][1] = 2.0 * a*(r2 - a2*c2)/(D*S*S);
-    G[3][0][2] = 2.0 * (-8.)*a*r*(m/s)/R;
-    G[3][1][3] = 2.0 * (a4 + 3.*a4*r - 12.*a2*r2 + 8.*a2*r3 -
-            16.*r2*r2 + 8.*r2*r3 + 4.*a2*r*(2.*r2 -r + a2)*cc -
-            a4*(1. - r)*CC)/(2.*D*R);
-    G[3][2][3] = 2.0 * ((3.*a4 + 8.*a2*r + 8.*a2*r2 + 8.*r2*r2 +
-            4.*a2*(2.*r2 -2.*r + a2)*cc + a4*CC)*(m/s))/(2.*R);
+    G[3][0][1] =   2.0 * a*(r2 - a2c2)*DS_1*S_1;
+    G[3][0][2] = -16.0 * a*r*m_s*R_1;
+    G[3][1][3] = (a4 + 3.*a4*r - 12.*a2r2 + 8.*a2*r3 -
+            16.*r4 + 8.*r2*r3 + 4.*r*(dbl_r2 -r + a2)*a2cc -
+            a4CC*(1. - r))*DR_1;
+    G[3][2][3] = ((3.*a4 + 8.*a2*r + 8.*a2r2 + 8.*r4 +
+            4.*(dbl_r2 -2.*r + a2)*a2cc + a4CC)*m_s)*R_1;
 
     //end_t = clock();
     //prof_t += (end_t - start_t);
