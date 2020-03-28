@@ -40,7 +40,7 @@ class DiskRaytrace:
 
 
 
-    def spectrum(self, incl, energies, limbdk=1, flat=0, radres=-1, angres=-1, hardening=0):
+    def spectrum(self, incl, energies, limbdk=1, flat=False, radres=-1, angres=-1, hardening=0):
         """
         Computes disk spectrum.
 
@@ -57,8 +57,8 @@ class DiskRaytrace:
         
         if (incl < 1.0): incl = 1.0
         
-        of = open('bhspec.domega', 'w')
-        of.truncate()
+        #of = open('bhspec.domega', 'w')
+        #of.truncate()
         
         spectrum1 = np.zeros(len(energies))
         spectrum2 = np.zeros(len(energies))
@@ -127,7 +127,7 @@ class DiskRaytrace:
         #end of while
         sys.stderr.write("Raytracing completed.\n")
 
-        of.close()
+        #of.close()
 
         #return spectrum1, spectrum2, spectrum_bb, spectrum_bb
         return spectrum_bb_f, spectrum_bb_0
@@ -233,7 +233,7 @@ class DiskRaytrace:
         geodesic_init_inf(incl, self.bh_spin, alpha, beta, gd, status)
 
         if (status.value() <> 0):
-            sys.stderr.write("not gd init\n")
+            sys.stderr.write("WRN: gd init failed with status "+str(status.value())+"\n")
             return (0.0, 0.0, None, None)
 
         if (flat):
@@ -432,8 +432,8 @@ class DiskRaytrace:
 
 
     def test_surface(self, incl):
-        of = open('slimdisk_raytrace_surface.dat', 'w')
-        of.truncate()
+        #of = open('slimdisk_raytrace_surface.dat', 'w')
+        #of.truncate()
 
         incl = math.radians(incl)
         N = 50
@@ -447,15 +447,15 @@ class DiskRaytrace:
 
                 r, m, gd = self.geodesic(incl, alpha, beta, flat=False)
                 if (not gd):
-                    of.write("%d %d %e\n" % (iy, ix, 0))
+                    #of.write("%d %d %e\n" % (iy, ix, 0))
                     continue
                 else:
                     H = r*m
-                    of.write("%d %d %e\n" % (iy, ix, H))
+                    #of.write("%d %d %e\n" % (iy, ix, H))
             #end of for
         #end of for
 
-        of.close()
+        #of.close()
     #end of def
 
 
