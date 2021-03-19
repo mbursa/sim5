@@ -266,7 +266,7 @@ char* key_value_get(const char *string, const char *key)
     for (p = strtok(string_copy,","); p != NULL; p = strtok(NULL, ",")) {
         if ((strncmp(p, key, strlen(key))==0) && (p[strlen(key)]=='=')) {
             p += strlen(key) + 1;
-            strncpy(value, p, sizeof(value));
+            strncpy(value, p, sizeof(value)-1);
             free(string_copy);
             return value;
         }

@@ -172,7 +172,7 @@ double diskmodel_lumi()
     const float disk_rmax = 1e5;
 
     // integrate disk luminosity from r_ms to disk_rmax rg
-    // - the integration uses 'logarithmic rule': L = \int f(x) dx \int f(x)*x d(log(x))
+    // - the integration uses 'logarithmic rule': L = \int f(x) dx = \int f(x)*x d(log(x))
 
     double func_luminosity(double log_r)
     {

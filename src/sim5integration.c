@@ -78,7 +78,7 @@ double integrate_trapezoid(double(*f)(double), double a, double b, double acc)
     for (n=1; n<=NMAX_TRAPEZOID; n++) {
         integrate_trapezoid_rule(f, a, b, n, &s);
         if (n > 3) {        // avoid spurious early convergence
-            if ((fabs(s-olds) < acc*abs(olds)) || ((s==0.) && (olds==0.))) return s;
+            if ((fabs(s-olds) < acc*fabs(olds)) || ((s==0.) && (olds==0.))) return s;
         }
         olds = s;
     }
