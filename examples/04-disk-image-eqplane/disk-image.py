@@ -1,7 +1,7 @@
-from __future__ import print_function
-from __future__ import division
-
+#!/usr/bin/python3
 import sys
+assert sys.version_info >= (3,0), "please, use Python version 3"
+
 import time
 from math import *
 import numpy as np
@@ -47,6 +47,8 @@ image_g = np.zeros((image_dim_y, image_dim_x))
 rmax = sim5.r_ms(bh_spin) + 15.0
 
 sys.stderr.write("Computing ... ")
+sys.stderr.flush()
+
 time1 = time.time()
 
 # go over the image and determine each pixel brightness
@@ -111,13 +113,15 @@ sys.stderr.write("done\n")
 print("Profiling:")
 print("    photons:", image_dim_x*image_dim_y)
 print("    time: %.1f" % (time2-time1))     
-print("    rate: %.1f" % (image_dim_x*image_dim_y/(time2-time1)))
+print("    rate: %.1f" % (image_dim_x*image_dim_y/(time2-time1)), 'photons/sec')
 
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(4,5))
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8,10))
 
-ax1.imshow(image_f, origin='lower', cmap='afmhot')
+ax1.set_title("Image")
+ax1.imshow(image_f, origin='lower', cmap='gray')
 ax1.axis('off')
 
+ax2.set_title("g-factor map")
 ax2.imshow(image_g, origin='lower', cmap='RdBu', vmin=0.5, vmax=1.3)
 ax2.axis('off')
 
