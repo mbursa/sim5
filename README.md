@@ -33,7 +33,7 @@ The Python interface does have a few external dependecies and thus it does not c
 
 ```bash
     # python headers
-    apt install python-dev
+    apt install python3-dev
     # SWIG - a tool that connects C/C++ programs with high-level programming languages
     apt install swig
 ```
@@ -51,6 +51,10 @@ The third file is a compiled library used for run-time linking. It is used by th
 ## Usage
 
 The library can be directly used in C/C++ projects and with a proper interface it can be used also in other languages (Fortran, ...). It also works as a Python package making most of its functions accessible from Python scripts with no extra effort. 
+
+*Note: only Python 3 is supported*
+
+
 
 ### Using SIM5 in your C/C++ project (static linking)
 
@@ -114,7 +118,7 @@ while (r < rout):
     r = r * 1.05
 #end of while 
 ```
-This example assumes that SIM5 subfolder does exist in the same folder along with the script. If that is not the case, put a line specifying the path to SIM5 library before the import statement.
+This example assumes that `sim5` subfolder does exist in the same folder along with the script. If that is not the case, put a line specifying the path to SIM5 library before the import statement.
 ```Python
 sys.path.append('/path/to/sim5')
 import sim5
@@ -122,6 +126,10 @@ import sim5
 ```
 
 Python calls to SIM5 routines are handled by the compiled C code in `lib/sim5lib.so` library. Although there is some overhead connected with the call to SIM5 routines, the actual evaluation of SIM5 functions is as fast as C code can be. This makes complex tasks (like raytracing) reasonably fast even if they are coded in Python (see examples in demo folder).
+
+*Note: only Python 3 is supported*
+
+
 
 ### Raytracing with SIM5
 
@@ -200,11 +208,15 @@ Documentation for the library is generated automatically (by [Doxygen](http://ww
 ## Citing
 
 If you want to refer to SIM5 in your paper, please give the following reference:
-Bursa, M. 2017, Proceedings of Ragtime 17-19: Workshops on Black Holes and Neutron Stars, p.7 [[ADS link](http://adsabs.harvard.edu/abs/2017bhns.work....7B)]
+Bursa, M. 2017, Proceedings of Ragtime 17-19: Workshops on Black Holes and Neutron Stars, p.7 
+[[ADS link](http://adsabs.harvard.edu/abs/2017bhns.work....7B)]
 
-If you have used SIM5 in your code or used a code that itself is using SIM5, please acknowledge the use of the software by [citing](http://ascl.net/wordpress/about-ascl/citing-the-ascl-and-codes/) its ASCL record: [ascl:1811.011](http://adsabs.harvard.edu/abs/2018ascl.soft11011B).
-
-
+If you have used SIM5 in your code or used a code that itself is using SIM5,
+please acknowledge the use of the software by citing its ASCL record: 
+[ascl:1811.011](https://ascl.net/1811.011). 
+The BibTeX citation record can be obtained from 
+[ADS](http://adsabs.harvard.edu/abs/2018ascl.soft11011B/exportcitation).
+See ASCL [citing guidelines](https://ascl.net/wordpress/about-ascl/citing-ascl-code-entries/).
 
 ## License
 
