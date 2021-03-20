@@ -1,6 +1,7 @@
-from __future__ import division
-
+#!/usr/bin/env python3
 import sys
+assert sys.version_info >= (3,0), "please, use Python version 3"
+
 from math import *
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,10 +19,10 @@ bh_spin = np.linspace(0, 1, 200)
 # - marginally bound radius,
 # - photon orbit radius
 # for all spins in bh_spin array
-rbh = map(sim5.r_bh, bh_spin)
-rms = map(sim5.r_ms, bh_spin)
-rmb = map(sim5.r_mb, bh_spin)
-rph = map(sim5.r_ph, bh_spin)
+rbh = list(map(sim5.r_bh, bh_spin))
+rms = list(map(sim5.r_ms, bh_spin))
+rmb = list(map(sim5.r_mb, bh_spin))
+rph = list(map(sim5.r_ph, bh_spin))
 
 # make a plot of rbh and rms as a function of spin
 plt.title("Kerr orbits")
