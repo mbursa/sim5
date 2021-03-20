@@ -232,7 +232,7 @@ class DiskRaytrace:
 
         geodesic_init_inf(incl, self.bh_spin, alpha, beta, gd, status)
 
-        if (status.value() <> 0):
+        if (status.value() != 0):
             sys.stderr.write("not gd init\n")
             return (0.0, 0.0, None, None)
 
@@ -245,7 +245,7 @@ class DiskRaytrace:
             if (not P): return (0.0, 0.0, None, None)
         #end of if
 
-        if ((status.value()<>0) or math.isnan(r)): return (0.0, 0.0, None, None)
+        if ((status.value()!=0) or math.isnan(r)): return (0.0, 0.0, None, None)
 
         photon_momentum(self.bh_spin, r, m, gd.l, gd.q, gd.Rpc-P, 1.0, k)
         
@@ -364,10 +364,10 @@ class DiskRaytrace:
 
 
     def __gfactor_keplerian(self, r, l, q):
-    	if (r <= r_ms(self.bh_spin)): return 0.0
-    	OmegaK = 1./(self.bh_spin + math.pow(r,1.5))
-    	r2 = r**2
-    	a2 = self.bh_spin**2
+        if (r <= r_ms(self.bh_spin)): return 0.0
+        OmegaK = 1./(self.bh_spin + math.pow(r,1.5))
+        r2 = r**2
+        a2 = self.bh_spin**2
         E = math.sqrt(1. - 2./r * (1.-self.bh_spin*OmegaK)**2 - (r2+a2)*(OmegaK**2));
         return E / (1. - OmegaK*l)
     #end of def
@@ -443,7 +443,7 @@ class DiskRaytrace:
             for ix in range(N):
                 alpha = (ix/N-0.5)*2*Rmax
                 beta  = (iy/N-0.5)*2*Rmax
-                print ix, iy, alpha, beta
+                print(ix, iy, alpha, beta)
 
                 r, m, gd = self.geodesic(incl, alpha, beta, flat=False)
                 if (not gd):

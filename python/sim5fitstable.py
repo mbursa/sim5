@@ -24,7 +24,7 @@ class Sim5_FitsTable:
         self.fits = importlib.import_module('astropy.io.fits')
 
         self.filename = filename
-        print "fits:",filename
+        print("fits:",filename)
         self.params = params
         self.primary_hdu = None
         self.meta_hdu    = None

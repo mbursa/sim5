@@ -5,9 +5,11 @@ CC=gcc
 
 # prerequisities
 EXISTS_SWIG := $(shell command -v swig 2> /dev/null)
+EXISTS_PYDEV := $(shell locate Python.h | grep python3 | head -n 1)
 EXISTS_DOXYGEN := $(shell command -v doxygen 2> /dev/null)
 EXISTS_XSLTPROC := $(shell command -v xsltproc 2> /dev/null)
-EXISYS_NVCC := $(shell command -v nvcc 2> /dev/null)
+EXISTS_NVCC := $(shell command -v nvcc 2> /dev/null)
+PYDEV_DIR:=$(shell dirname `locate Python.h | grep python3 | head -n 1`)
 
 
 default: all
@@ -38,17 +40,19 @@ python: lib
 ifndef EXISTS_SWIG
 	$(error "FAILED PREREQUISITY: SWIG has not been found on the system PATH, install it with apt install swig")
 endif
+ifndef EXISTS_PYDEV
+	$(error "FAILED PREREQUISITY: header files for Python are not installed, install it with apt install python3-dev")
+endif
 	@mkdir -p lib
-	swig -python -w314 -w301 src/sim5lib.swig
+	swig -python -py3 -w314 -w301 src/sim5lib.swig
 	@mv src/sim5lib.py python/sim5lib.py
 	@sed -i "s/'_sim5lib'/'sim5lib'/g" python/sim5lib.py
 	@sed -i "s/_sim5lib/sim5lib/g" src/sim5lib_wrap.c
 #	cat python/sim5*.py >> lib/sim5lib.py
-	$(CC) -c src/sim5lib_wrap.c -o src/sim5lib_wrap.o $(CFLAGS) -I/usr/include/python2.7 $(LFLAGS)
+	$(CC) -c src/sim5lib_wrap.c -o src/sim5lib_wrap.o $(CFLAGS) -I$(PYDEV_DIR) $(LFLAGS) -w
 	$(CC) -shared src/sim5lib.o src/sim5lib_wrap.o $(CFLAGS) $(LFLAGS) -o lib/sim5lib.so
 	patch python/sim5lib.py python/sim5lib.py.patch
 	@rm -f src/*_wrap.*
-
 
 export:
 	echo 'Compiling for export'
@@ -73,7 +77,7 @@ test: lib
 	$(CC) src/sim5unittests.o src/sim5lib.o -o bin/sim5lib-tests $(CFLAGS) $(LFLAGS)
 	if [ -e bin/sim5lib-tests ]; then bin/sim5lib-tests; fi
 
-.PHONY: doc
+.PHONY: doc python
 
 
 doc: doxygen-check

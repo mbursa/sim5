@@ -142,9 +142,6 @@ class DiskModel_External:
                 self.lib.diskmodel_flux.argtypes = [ctypes.c_double]
                 self.lib.diskmodel_flux.restype = ctypes.c_double
 
-                self.lib.diskmodel_temp.argtypes = [ctypes.c_double]
-                self.lib.diskmodel_temp.restype = ctypes.c_double
-
                 self.lib.diskmodel_sigma.argtypes = [ctypes.c_double]
                 self.lib.diskmodel_sigma.restype = ctypes.c_double
 
@@ -163,7 +160,7 @@ class DiskModel_External:
                 self.lib = importlib.import_module(model_lib)
             #end if                
         except AttributeError as e:
-            print 'Missing required function in disk module.\n', e.args
+            print('Missing required function in disk module.\n', e.args)
             raise
 
         # init model
@@ -226,10 +223,10 @@ def test():
     print '# mdot:', m.mdot
     print '# lumi:', m.lumi
     print '# alpha:', alpha
-    print '# [radius  flux  temp  sigma  ell  vr  h  dhdr]'
+    print '# [radius  flux  sigma  ell  vr  h  dhdr]'
     r = m.r_min
     while (r < 1e4):
-        print r, m.flux(r), m.temp(r), m.sigma(r), m.l(r), m.vr(r), m.h(r), m.dhdr(r)
+        print r, m.flux(r), m.sigma(r), m.l(r), m.vr(r), m.h(r), m.dhdr(r)
         r *= 1.05
     #end while
     
