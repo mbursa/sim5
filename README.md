@@ -194,7 +194,7 @@ while (True):
 ```
 
 Refer to the following examples:
-* [Example 04](examples/04) - accretion disk image - equatorial plane
+* [Example 04](examples/04-disk-image-eqplane) - accretion disk image - equatorial plane
 
 
 ### Code parallelization
