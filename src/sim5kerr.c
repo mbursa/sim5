@@ -906,20 +906,15 @@ double ellK(double r, double a)
 //!
 //! @result Keplerian specific angular momentum [g.u.].
 {
-    /*
-    double r2 = sqr(r);
-    double a2 = sqr(a);
-    double D = r2 + a2 - 2.*r;
-    double gtt = -1. + 2.0/r;
-    double gff = (sqr(r2 + a2) - a2*D)/r2;
-    double gtf = -2.*a/r;
-
-    double Omega = OmegaK(r,a);
-    return -(gtf + Omega*gff) / (gtt + Omega*gtf);
-    */
+    // ell =  -(gtf + Omega*gff) / (gtt + Omega*gtf);
     
-    // formula of Komissarov(2008)
-    return (sqr(r)-2.*a*sqrt(r)+sqr(a)) / (sqrt(r)*r-2.*sqrt(r)+a);    
+    // formula of Page&Thorne(1974) - Eq 15h
+    // http://adsabs.harvard.edu/abs/1974ApJ...191..499P
+    double x = sqrt(r);
+    double x_3 = 1./(x*x*x);
+    double C = 1.0 - 3.0/r + 2*a*x_3;
+    double F = 1.0 -2.0*a*x_3 + sqr(a/r);
+    return x * F / sqrt(C);
 }
 
 
