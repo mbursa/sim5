@@ -10,7 +10,7 @@
 import sys
 import math
 import numpy as np
-from sim5lib import * 
+from .sim5lib import * 
 
 
 class DiskRaytrace:
