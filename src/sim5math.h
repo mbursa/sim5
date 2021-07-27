@@ -17,6 +17,10 @@
 #ifndef _SIM5MATH_H
 #define _SIM5MATH_H
 
+#ifndef CUDA
+#include <complex.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -56,8 +60,6 @@ extern "C" {
     #define ComplexI    makeComplex(0.0,1.0)                    //!< complex unit (sqrt(-1))
     typedef double2     sim5complex;                            //!< proxy to built-in "double2" type
 #else
-    #include <complex.h>
-    #undef I
     #define ComplexI _Complex_I                                 //!< complex unit (sqrt(-1))
     typedef double _Complex sim5complex;                         //!< proxy to built-in "complex double" type
 #endif
@@ -85,6 +87,9 @@ DEVICEFUNC INLINE double sim5urand();
 
 DEVICEFUNC INLINE sim5complex makeComplex(double r, double i);
 DEVICEFUNC INLINE sim5complex nullComplex();
+DEVICEFUNC INLINE double sim5creal (sim5complex a);
+DEVICEFUNC INLINE double sim5cimag (sim5complex a);
+
 //! \endcond
 
 #ifdef __cplusplus
