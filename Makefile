@@ -72,6 +72,7 @@ debug: lib
 
 
 test: lib
+	@mkdir -p ./bin
 	@rm -f bin/sim5lib-tests
 	$(CC) -c src/sim5unittests.c -o src/sim5unittests.o $(CFLAGS) $(LFLAGS)
 	$(CC) src/sim5unittests.o src/sim5lib.o -o bin/sim5lib-tests $(CFLAGS) $(LFLAGS)

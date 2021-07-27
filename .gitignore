@@ -5,6 +5,7 @@
 *.x
 *.py.c
 *_module.py
+bin
 lib/*
 doc/*
 !doc/doxygen.*
