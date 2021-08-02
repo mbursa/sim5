@@ -5,11 +5,11 @@ CC=gcc
 
 # prerequisities
 EXISTS_SWIG := $(shell command -v swig 2> /dev/null)
-EXISTS_PYDEV := $(shell locate Python.h | grep python3 | head -n 1)
+EXISTS_PYDEV := $(shell command -v python3-config 2> /dev/null)
 EXISTS_DOXYGEN := $(shell command -v doxygen 2> /dev/null)
 EXISTS_XSLTPROC := $(shell command -v xsltproc 2> /dev/null)
 EXISTS_NVCC := $(shell command -v nvcc 2> /dev/null)
-PYDEV_DIR:=$(shell dirname `locate Python.h | grep python3 | head -n 1`)
+PYDEV_INC := $(shell python3-config --includes)
 
 
 default: all
@@ -49,7 +49,7 @@ endif
 	@sed -i "s/'_sim5lib'/'sim5lib'/g" python/sim5lib.py
 	@sed -i "s/_sim5lib/sim5lib/g" src/sim5lib_wrap.c
 #	cat python/sim5*.py >> lib/sim5lib.py
-	$(CC) -c src/sim5lib_wrap.c -o src/sim5lib_wrap.o $(CFLAGS) -I$(PYDEV_DIR) $(LFLAGS) -w
+	$(CC) -c src/sim5lib_wrap.c -o src/sim5lib_wrap.o $(CFLAGS) $(PYDEV_INC) $(LFLAGS) -w
 	$(CC) -shared src/sim5lib.o src/sim5lib_wrap.o $(CFLAGS) $(LFLAGS) -o lib/sim5lib.so
 	patch python/sim5lib.py python/sim5lib.py.patch
 	@rm -f src/*_wrap.*
@@ -72,7 +72,6 @@ debug: lib
 
 
 test: lib
-	@mkdir -p ./bin
 	@rm -f bin/sim5lib-tests
 	$(CC) -c src/sim5unittests.c -o src/sim5unittests.o $(CFLAGS) $(LFLAGS)
 	$(CC) src/sim5unittests.o src/sim5lib.o -o bin/sim5lib-tests $(CFLAGS) $(LFLAGS)
