@@ -13,6 +13,7 @@ void test_geodesic_init_src();
 void test_ntdisk();
 void test__gauss_distribution();
 void test__interpolation();
+void test__connection();
 
 
 int main() {
@@ -20,11 +21,13 @@ int main() {
     //test_ntdisk();
 
     //test__interpolation();
-    test__gauss_distribution();
+    //test__gauss_distribution();
 
     //test_raytrace();
 
     //test_geodesic_init_src();
+
+    test__connection();
 
 
     return 0;
@@ -62,23 +65,23 @@ void test_raytrace() {
         sim5tetrad t;       // tetrad object
         int errors = 0;
 
-        double bh_spin = rnd*0.999;
+        double bh_spin = sim5urand()*0.999;
         double r_min = r_bh(bh_spin)*1.1;
         double r_max = 500.0;
 
         // set initial position
         double x[4];
         x[0] = 0.0;
-        x[1] = r_min + 30.*rnd;
-        x[2] = 2.*rnd-1.0;
+        x[1] = r_min + 30.*sim5urand();
+        x[2] = 2.*sim5urand()-1.0;
         x[3] = 0.0;
 
         kerr_metric(bh_spin, x[1], x[2], &m);
         tetrad_zamo(&m, &t);
 
         // set initial direction (k-vector)
-        double ang1 = rnd*M_2PI;
-        double ang2 = rnd*M_PI;
+        double ang1 = sim5urand()*PI;
+        double ang2 = sim5urand()*PI2;
         double n[4];
         double k[4];
         n[0] = -1.0;
@@ -89,13 +92,13 @@ void test_raytrace() {
 
         // initial polarization vector (f.k=0, f.f=1)
         double f[4], f_loc[4];
-        double r1=rnd, r2=rnd, r3=rnd;
+        double r1=sim5urand(), r2=sim5urand(), r3=sim5urand();
         f_loc[0] = 0.0;
         f_loc[1] = n[2]*r3 - n[3]*r2;
         f_loc[2] = n[3]*r1 - n[1]*r3;
         f_loc[3] = n[1]*r2 - n[2]*r1;
         on2bl(f_loc, f, &t);
-        vector_norm_to(f, &m, 1.0);
+        vector_norm_to(f, 1.0, &m);
 
         // checks of initial conditions
         kk1 = fabs(dotprod(k, k, &m));
@@ -107,16 +110,16 @@ void test_raytrace() {
 
         // get motion constants
         qq1 = photon_carter_const(k, &m);
-        wp1 = photon_wp_const(k, f, &m);
+        wp1 = polarization_constant(k, f, &m);
 
         // prepare raytrace
-        raytrace_prepare(bh_spin, x, k, NULL, 0.01, RTOPT_NONE, &rtd);
+        raytrace_prepare(bh_spin, x, k, 0.01, RTOPT_NONE, &rtd);
 
         // do raytrace
         t1 = clock();
         while (1) {
             double dl = 1e9; // use maximal step
-            raytrace(x, k, f, &dl, &rtd);
+            raytrace(x, k, &dl, &rtd);
             // stop condition:
             if ((x[1] < r_min) || (x[1] > r_max)) break;
             // also stop if relative error this step is too large
@@ -125,16 +128,16 @@ void test_raytrace() {
         t2 = clock();
 
         // get total relative error
-        double error = raytrace_error(x, k, f, &rtd);
+        double error = raytrace_error(x, k, &rtd);
 
         time += (t2-t1)/(double)CLOCKS_PER_SEC;
 
         // construct polarization vector at a new position
         kerr_metric(bh_spin, x[1], x[2], &m);
-        photon_polarization_vector(k, wp1, &m, f);
+        polarization_vector(k, wp1, &m, f);
 
         // do checks
-        wp2 = photon_wp_const(k, f, &m);
+        wp2 = polarization_constant(k, f, &m);
         qq2 = photon_carter_const(k, &m);
         kk2 = fabs(dotprod(k, k, &m));
         ff2 = fabs(dotprod(f, f, &m));
@@ -196,7 +199,7 @@ void test_geodesic_init_src()
 
             P = geodesic_find_midplane_crossing(&gd1, 0);
             if (isnan(P)) continue;
-            pa = (P > gd1.Rpa);
+            pa = (P > gd1.Rpc);
 
             // from the position parameter get radius of disk intersection
             r = geodesic_position_rad(&gd1, P);
@@ -214,11 +217,11 @@ void test_geodesic_init_src()
 
             raytrace_data rtd;
             double x[4];
-            vector(x, 0.0, r, 0.0, 0.0);
-            raytrace_prepare(a, x, k, NULL, 0.01, RTOPT_NONE, &rtd);
+            vector_set(x, 0.0, r, 0.0, 0.0);
+            raytrace_prepare(a, x, k, 0.01, RTOPT_NONE, &rtd);
             while (1) {
                 double dl = 1e9; // use maximal step
-                raytrace(x, k, NULL, &dl, &rtd);
+                raytrace(x, k, &dl, &rtd);
                 // stop condition:
                 if ((x[1] < r_bh(a)) || (x[1] > 1e9)) break;
                 // also stop if relative error this step is too large
@@ -307,7 +310,7 @@ void test__gauss_distribution()
     
     double gauss_pdf(double _x) { return exp(-sqr(_x)/2.)/sqrt(2*M_PI); }
 
-    distrib_init(&d, gauss_pdf, x_min, x_max);  
+    distrib_init(&d, gauss_pdf, x_min, x_max, N_pdf);  
     printf("# norm=%e\n", d.norm);
     
     //for(i=0; i<d.icd.N; i++) printf("%e %e\n", d.icd.X[i], d.icd.Y[i]);
@@ -333,4 +336,28 @@ void test__gauss_distribution()
     free(pdf_x);
     free(pdf_y);
     distrib_done(&d);
+}
+
+
+
+void test__connection()
+{
+    int N_total = 100000000;
+    clock_t start_t, end_t;
+    double time;
+    double tmp = 1.0;
+
+    void kerr_connection1(double a, double r, double m, double G[4][4][4]);
+
+    start_t = clock();
+    for (long i = 0; i<N_total; i++) {
+        double G[4][4][4];
+        double a = sim5urand()*0.999;
+        double r = r_bh(a) + sim5urand()*20.0;
+        double m = sim5urand();
+        kerr_connection(a, r, m, G);
+        tmp *= G[1][1][1];
+    }
+    end_t = clock();
+    time = ((float)end_t - (float)start_t)/CLOCKS_PER_SEC;
 }

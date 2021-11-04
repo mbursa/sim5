@@ -167,6 +167,7 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
     double a2c2 = a2*c2;
     double a2cs = a2*cs;
     double a4CC = a4*CC;
+    double two_r = 2.0*r;
     double r2 = r*r;
     double r3 = r2*r;
     double r4 = r2*r2;
@@ -191,16 +192,16 @@ void kerr_connection(double a, double r, double m, double G[4][4][4])
     G[0][2][3] = -G[0][0][2]*s2*a;
 
     G[1][0][0] = -D*(a2c2-r2)*S_3;
-    G[1][0][3] = 2.0 * (a*D*(a2c2-r2)*s2)*S_3;
+    G[1][0][3] = -2.0 * a * G[1][0][0] * s2;
     G[1][1][1] = (r*(a2 - r) + a2*(1. - r)*c2)*DS_1;
     G[1][1][2] = -2.0*a2cs*S_1;
     G[1][2][2] = -r*D*S_1;
     G[1][3][3] = -D*s2*(2.*a2c2*r3 + r2*r3 + a2*a2c2*s2 + a2c2*a2c2*r - a2r2*s2)*S_3;
 
-    G[2][0][0] = -2.*a2cs*r*S_3;
+    G[2][0][0] = -two_r*a2cs*S_3;
     G[2][0][3] = 4.0 * a*r*cs*(a2 + r2)*S_3;
     G[2][1][1] = a2cs*DS_1;
-    G[2][1][2] = 2.0 * r*S_1;
+    G[2][1][2] = two_r*S_1;
     G[2][2][2] = -G[2][1][1]*D;
     G[2][3][3] = -0.125*cs*(3.*a2*a4 + 10.*a4*r + 11.*a4*r2 + 16.*a2*r3 +
             16.*a2*r4 + 8.*r3*r3 + 4.*(a2 + dbl_r2)*D*a2cc +

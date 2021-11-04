@@ -210,6 +210,18 @@ sim5complex nullComplex()
 #endif
 }
 
+DEVICEFUNC INLINE
+double sim5creal (sim5complex a)
+{
+    return creal(a);
+}
+
+DEVICEFUNC INLINE
+double sim5cimag (sim5complex a)
+{
+    return cimag(a);
+}
+
 
 #ifdef CUDA
 
