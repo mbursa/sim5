@@ -46,10 +46,19 @@ DEVICEFUNC
 void kerr_metric_contravariant(double a, double r, double m, sim5metric *metric);
 
 DEVICEFUNC
+void kerr_newman_metric(double a, double Q, double r, double m, sim5metric *metric);
+
+DEVICEFUNC
+void kerr_newman_metric_contravariant(double a, double Q, double r, double m, sim5metric *metric);
+
+DEVICEFUNC
 void flat_connection(double r, double m, double G[4][4][4]);
 
 DEVICEFUNC
 void kerr_connection(double a, double r, double m, double G[4][4][4]);
+
+DEVICEFUNC
+void kerr_newman_connection(double a, double Q, double r, double m, double G[4][4][4]);
 
 DEVICEFUNC INLINE
 void Gamma(double G[4][4][4], double U[4], double V[4], double result[4]);

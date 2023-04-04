@@ -87,17 +87,17 @@ void kerr_metric(double a, double r, double m, sim5metric *metric)
     double a2  = sqr(a);
     double m2  = sqr(m);
     double S   = r2 + a2*m2;
-    double s2S = (1.0-m2)/S;
+    double s2_S  = (1.0-m2)/S;
     //double D = r2 - 2.*r + a2;
     //double A = sqr(r2+a2) - a2*D*s2;
     metric->a = a;
     metric->r = r;
     metric->m = m;
     metric->g00 = -1. + 2.0*r/S;
-    metric->g11 = S/(r2-2.*r+a2); //S/D;
+    metric->g11 = S/(r2-2.*r+a2); //=S/D;
     metric->g22 = S;
-    metric->g33 = (r2*r2 + a2*a2*m2 + a2*r2*(1.+m2) + 2.*r*a2*s2S*S)*s2S;
-    metric->g03 = -2.*a*r*s2S;
+    metric->g33 = ((a2+r2)*S + 2.*r*a2*s2_S*S)*s2_S;
+    metric->g03 = -2.*a*r*s2_S;
 }
 
 
@@ -133,91 +133,66 @@ void kerr_metric_contravariant(double a, double r, double m, sim5metric *metric)
 
 
 DEVICEFUNC
-void kerr_connection(double a, double r, double m, double G[4][4][4])
-//! Christoffel symbol components for Kerr metric (\f$Gamma^\mu_\alpha\beta\f$).
-//! Returns a matrix of connection coefficients for Kerr metric.
-//!
-//! (!) NOTE: Christoffel tensor Gamma^i_(jk) is symmetric in lower two indices (j,k).
-//! This function only evaluates components of the tensor, where j<k and
-//! multiplies the value of these coeficients by a factor of two.
-//! In this way, both summation over j=1..4,k=1..4 and over j=1..4,k=j..4
-//! will give the same result; however, care must be taken when summing
-//! Gamma^i_(jk) U^j V^k where factor 0.5 has to be used: 
-//! `0.5*G[i][j][k]*(u[j]*v[k] + u[k]*v[j])`
+void kerr_newman_metric(double a, double Q, double r, double m, sim5metric *metric)
+//*********************************************************
+//! Kerr spacetime metric.
+//! Returns Kerr metric \f$g_\mu\nu\f$ in spherical coordinates (t,r,theta,phi).
 //!
 //! @param a black hole spin
 //! @param r radial coordinate
 //! @param m poloidal coordinate \f$m=\cos\theta\f$
 //!
-//! @result Connection coeficients are returned in `G` parameter.
+//! @result Metric components are returned in `metric` parameter.
 {
-    //prof_N++;
-    //clock_t start_t, end_t;
-    //start_t = clock();
-
-    double s  = sqrt(1.-m*m);
-    double cs = s*m;
-    double c2 = m*m;
-    double s2 = s*s;
-    double cc = c2-s2; //cc
-    double CC = 8.*c2*c2-8.*c2+1.;   //cos(4*theta)
-    double a2 = a*a;
-    double a4 = a2*a2;
-    double a2cc = a2*cc;
-    double a2c2 = a2*c2;
-    double a2cs = a2*cs;
-    double a4CC = a4*CC;
-    double two_r = 2.0*r;
-    double r2 = r*r;
-    double r3 = r2*r;
-    double r4 = r2*r2;
-    double a2r2 = a2*r2;
-    double R  = pow(a2 + 2.*r2 + a2cc, 2.);
-    double D  = r2 - 2.*r + a2;
-    double S  = r2 + a2c2;
-    double S_1 = 1./S;
-    double S_3 = 1./(S*S*S);
-    double D_1 = 1./D;
-    double R_1 = 1./R;
-    double m_s = m/s;
-    double DR_1 = D_1*R_1;
-    double DS_1 = D_1*S_1;
-    double dbl_r2 = 2.*r2;
-
-    memset(G, 0, 4*4*4*sizeof(double));
-
-    G[0][0][1] =  -4.0 * (a2 + r2)*(a2 - dbl_r2 + a2cc)*DR_1;
-    G[0][0][2] = -16.0 * a2cs*r*R_1;
-    G[0][1][3] =   4.0 * a*s2*(a4 - 3.*a2r2 - 6.*r4 + a2cc*(a2 - r2))*DR_1;
-    G[0][2][3] = -G[0][0][2]*s2*a;
-
-    G[1][0][0] = -D*(a2c2-r2)*S_3;
-    G[1][0][3] = -2.0 * a * G[1][0][0] * s2;
-    G[1][1][1] = (r*(a2 - r) + a2*(1. - r)*c2)*DS_1;
-    G[1][1][2] = -2.0*a2cs*S_1;
-    G[1][2][2] = -r*D*S_1;
-    G[1][3][3] = -D*s2*(2.*a2c2*r3 + r2*r3 + a2*a2c2*s2 + a2c2*a2c2*r - a2r2*s2)*S_3;
-
-    G[2][0][0] = -two_r*a2cs*S_3;
-    G[2][0][3] = 4.0 * a*r*cs*(a2 + r2)*S_3;
-    G[2][1][1] = a2cs*DS_1;
-    G[2][1][2] = two_r*S_1;
-    G[2][2][2] = -G[2][1][1]*D;
-    G[2][3][3] = -0.125*cs*(3.*a2*a4 + 10.*a4*r + 11.*a4*r2 + 16.*a2*r3 +
-            16.*a2*r4 + 8.*r3*r3 + 4.*(a2 + dbl_r2)*D*a2cc +
-            a4CC*D)*S_3;
-
-    G[3][0][1] =   2.0 * a*(r2 - a2c2)*DS_1*S_1;
-    G[3][0][2] = -16.0 * a*r*m_s*R_1;
-    G[3][1][3] = (a4 + 3.*a4*r - 12.*a2r2 + 8.*a2*r3 -
-            16.*r4 + 8.*r2*r3 + 4.*r*(dbl_r2 -r + a2)*a2cc -
-            a4CC*(1. - r))*DR_1;
-    G[3][2][3] = ((3.*a4 + 8.*a2*r + 8.*a2r2 + 8.*r4 +
-            4.*(dbl_r2 -2.*r + a2)*a2cc + a4CC)*m_s)*R_1;
-
-    //end_t = clock();
-    //prof_t += (end_t - start_t);
+    double rQ  = sqr(Q);
+    double r2  = sqr(r);
+    double a2  = sqr(a);
+    double m2  = sqr(m);
+    double S   = r2 + a2*m2;
+    double s2_S = (1.0-m2)/S;
+    //double D = r2 - 2.*r + a2 + rQ;
+    //double A = sqr(r2+a2) - a2*D*s2;
+    metric->a = a;
+    metric->r = r;
+    metric->m = m;
+    metric->g00 = -1. + (2.0*r-rQ)/S;
+    metric->g11 = S/(r2-2.*r+a2+rQ); //S/D;
+    metric->g22 = S;
+    metric->g33 = ((a2+r2)*S + (2.*r-rQ)*a2*s2_S*S)*s2_S;
+    metric->g03 = -a*(2.*r-rQ)*s2_S;
 }
+
+
+
+DEVICEFUNC
+void kerr_newman_metric_contravariant(double a, double Q, double r, double m, sim5metric *metric)
+//! Kerr spacetime metric (contravariant).
+//! Returns contravariant Kerr metric \f$g^\mu\nu\f$ in spherical coordinates (t,r,theta,phi).
+//!
+//! @param a black hole spin
+//! @param r radial coordinate
+//! @param m poloidal coordinate \f$m=\cos\theta\f$
+//!
+//! @result Metric components are returned in `metric` parameter.
+{
+    double rQ  = sqr(Q);
+    double r2  = sqr(r);
+    double a2  = sqr(a);
+    double m2  = sqr(m);
+    double S   = r2 + a2*m2;
+    double SD  = S*(r2 - 2.*r + a2 + rQ);  // = S*D
+    //double D = r2 - 2.*r + a2;
+    //double A = sqr(r2+a2) - a2*D*s2;
+    metric->a = a;
+    metric->r = r;
+    metric->m = m;
+    metric->g00 = -sqr(r2+a2)/SD + a2*(1.-m2)/S;  // =-A/SD
+    metric->g11 = (r2-2.*r+a2+rQ)/S; // =D/S
+    metric->g22 = 1./S;
+    metric->g33 = 1./S/(1.-m2) - a2/SD;
+    metric->g03 = a*(-2.*r+rQ)/SD;
+}
+
 
 
 DEVICEFUNC
@@ -251,6 +226,179 @@ void flat_connection(double r, double m, double G[4][4][4])
     G[3][1][3] = 2.0 * 1./r;
     G[3][2][3] = 2.0 * m/s;
 }
+
+
+
+DEVICEFUNC
+void kerr_connection(double a, double r, double m, double G[4][4][4])
+//! Christoffel symbol components for Kerr metric (\f$Gamma^\mu_\alpha\beta\f$).
+//! Returns a matrix of connection coefficients for Kerr metric.
+//!
+//! (!) NOTE: Christoffel tensor Gamma^i_(jk) is symmetric in lower two indices (j,k).
+//! This function only evaluates components of the tensor, where j<k and
+//! multiplies the value of these coeficients by a factor of two.
+//! In this way, both summation over j=1..4,k=1..4 and over j=1..4,k=j..4
+//! will give the same result; however, care must be taken when summing
+//! Gamma^i_(jk) U^j V^k where factor 0.5 has to be used: 
+//! `0.5*G[i][j][k]*(u[j]*v[k] + u[k]*v[j])`
+//!
+//! @param a black hole spin
+//! @param r radial coordinate
+//! @param m poloidal coordinate \f$m=\cos\theta\f$
+//!
+//! @result Connection coeficients are returned in `G` parameter.
+{
+    //prof_N++;
+    //clock_t start_t, end_t;
+    //start_t = clock();
+
+    double rS = 2.0*r;
+    double s  = sqrt(1.-m*m);
+    double cs = s*m; //0.5*sin(2*theta)
+    double c2 = m*m;
+    double s2 = s*s;
+    double cc = c2-s2; //cos(2*theta)
+    double CC = 8.*c2*c2-8.*c2+1.;   //cos(4*theta)
+    double a2 = a*a;
+    double a4 = a2*a2;
+    double a2cc = a2*cc;
+    double a2c2 = a2*c2;
+    double a2cs = a2*cs;
+    double a4CC = a4*CC;
+    double r2 = r*r;
+    double r3 = r2*r;
+    double r4 = r2*r2;
+    double a2r2 = a2*r2;
+    double a2_r2 = a2+r2;
+    double R  = pow(a2 + 2.*r2 + a2cc, 2.);
+    double D  = r2 - 2.*r + a2;
+    double S  = r2 + a2c2;
+    double S_1 = 1./S;
+    double S_3 = 1./(S*S*S);
+    double D_1 = 1./D;
+    double R_1 = 1./R;
+    double m_s = m/s;
+    double DR_1 = D_1*R_1;
+    double DS_1 = D_1*S_1;
+    double dbl_r2 = 2.*r2;
+
+    memset(G, 0, 4*4*4*sizeof(double));
+
+    G[0][0][1] = 2.0 *  4.0*(a2_r2)*(r2-a2c2)*DR_1;
+    G[0][0][2] = 2.0 * -4.0*a2cs*rS*R_1;
+    G[0][1][3] = 2.0 *  2.0 * a*s2*(a4 - 3.*a2r2 - 6.*r4 + a2cc*(a2 - r2))*DR_1;
+    G[0][2][3] = -G[0][0][2]*s2*a;
+
+    G[1][0][0] =  D*(r2-a2c2)*S_3;
+    G[1][0][3] = -2.0 * G[1][0][0] * a * s2;
+    G[1][1][1] = (r*(a2 - r) + a2*(1. - r)*c2)*DS_1;
+    G[1][1][2] = -2.0 * a2cs*S_1;
+    G[1][2][2] = -r*D*S_1;
+    G[1][3][3] = -D*s2*(2.*a2c2*r3 + r2*r3 + a2*a2c2*s2 + a2c2*a2c2*r - a2r2*s2)*S_3;
+
+    G[2][0][0] = -2.0*r*a2cs*S_3;
+    G[2][0][3] = 2.0 * -G[2][0][0] * a2_r2 / a;
+    G[2][1][1] = +a2cs*DS_1;
+    G[2][1][2] = 2.0 * r*S_1;
+    G[2][2][2] = -a2cs*S_1;
+    G[2][3][3] = -cs*(a2_r2*S*S + a2*s2*rS*(a2_r2+S))*S_3;
+
+    G[3][0][1] = 2.0 * a*(r2 - a2c2)*DS_1*S_1;
+    G[3][0][2] = 2.0 * -4.0 * a*rS*m_s*R_1;
+    G[3][1][3] = (a4 + 3.*a4*r - 12.*a2r2 + 8.*a2*r3 -
+            16.*r4 + 8.*r2*r3 + 4.*r*(dbl_r2 -r + a2)*a2cc -
+            a4CC*(1. - r))*DR_1;
+    G[3][2][3] = ((3.*a4 + 8.*a2*r + 8.*a2r2 + 8.*r4 +
+            4.*(dbl_r2 -2.*r + a2)*a2cc + a4CC)*m_s)*R_1;
+
+    //end_t = clock();
+    //prof_t += (end_t - start_t);
+}
+
+
+
+DEVICEFUNC
+void kerr_newman_connection(double a, double Q, double r, double m, double G[4][4][4])
+//! Christoffel symbol components for Kerr metric (\f$Gamma^\mu_\alpha\beta\f$).
+//! Returns a matrix of connection coefficients for Kerr metric.
+//!
+//! (!) NOTE: Christoffel tensor Gamma^i_(jk) is symmetric in lower two indices (j,k).
+//! This function only evaluates components of the tensor, where j<k and
+//! multiplies the value of these coeficients by a factor of two.
+//! In this way, both summation over j=1..4,k=1..4 and over j=1..4,k=j..4
+//! will give the same result; however, care must be taken when summing
+//! Gamma^i_(jk) U^j V^k where factor 0.5 has to be used: 
+//! `0.5*G[i][j][k]*(u[j]*v[k] + u[k]*v[j])`
+//!
+//! @param a black hole spin
+//! @param r radial coordinate
+//! @param m poloidal coordinate \f$m=\cos\theta\f$
+//!
+//! @result Connection coeficients are returned in `G` parameter.
+{
+    //prof_N++;
+    //clock_t start_t, end_t;
+    //start_t = clock();
+
+    double rS = 2.0*r;
+    double rQ = sqr(Q);
+    double s  = sqrt(1.-m*m);
+    double cs = s*m; //0.5*sin(2*theta)
+    double c2 = m*m;
+    double s2 = s*s;
+    double cc = c2-s2; //cos(2*theta)
+    double CC = 8.*c2*c2-8.*c2+1.;   //cos(4*theta)
+    double a2 = a*a;
+    double a4 = a2*a2;
+    double a2cc = a2*cc;
+    double a2c2 = a2*c2;
+    double a2cs = a2*cs;
+    double r2 = r*r;
+    double r3 = r2*r;
+    double a2_r2 = a2+r2;
+    double R  = pow(a2 + 2.*r2 + a2cc, 2.); //=(r2+a2+Sigma)^2=4*Sigma^2
+    double D  = r2 - 2.*r + a2 + rQ;
+    double S  = r2 + a2c2;
+    double S_1 = 1./S;
+    double S_3 = 1./(S*S*S);
+    double R_1 = 1./R;
+    double m_s = m/s;
+    double DR_1 = R_1/D;
+    double DS_1 = S_1/D;
+    double dbl_r2 = 2.*r2;
+
+    memset(G, 0, 4*4*4*sizeof(double));
+
+    G[0][0][1] = 2.0 *  4.0*(a2_r2)*(r*(r-rQ)-a2c2)*DR_1;
+    G[0][0][2] = 2.0 * -4.0*a2cs*(rS-rQ)*R_1;
+    G[0][1][3] = 2.0 *  4.0*a*s2*(-a2*(r2-r*rQ) - r3*(3.*r-2.*rQ) + a2cc*(a2-r2+r*rQ) )*DR_1;
+    G[0][2][3] = -G[0][0][2]*s2*a;
+
+    G[1][0][0] = D*(r*(r-rQ)-a2c2)*S_3;
+    G[1][0][3] = -2.0 * G[1][0][0] * a * s2;
+    G[1][1][1] = (r*(a2-r+rQ) + a2*(1. - r)*c2)*DS_1;
+    G[1][1][2] = -2.0 * a2cs*S_1;
+    G[1][2][2] = -r*D*S_1;
+    G[1][3][3] = -D*s2*(2.*a2c2*r3 + r2*r3 + a2*a2c2*s2 + a2c2*a2c2*r - a2*r*(r-rQ)*s2)*S_3;
+
+    G[2][0][0] = -(2.0*r-rQ)*a2cs*S_3;
+    G[2][0][3] = 2.0 * -G[2][0][0] * a2_r2 / a;
+    G[2][1][1] = +a2cs*DS_1;
+    G[2][1][2] = 2.0 * r*S_1;
+    G[2][2][2] = -a2cs*S_1;
+    G[2][3][3] = -cs*(a2_r2*S*S + a2*s2*(rS-rQ)*(a2_r2+S))*S_3;
+
+    G[3][0][1] = 2.0 * a*(r*(r-rQ) - a2c2)*DS_1*S_1;
+    G[3][0][2] = 2.0 * -4.0*a*(rS-rQ)*m_s*R_1;
+    G[3][1][3] = 2.0 * 4.0*(r3*(r2-rS+rQ) + r*a2c2*a2c2 - 
+            a2*r*(r-rQ)*s2 + a2c2*r*(dbl_r2-rS+rQ) + a2c2*a2*s2)*DR_1;
+    G[3][2][3] = 2.0 * ((3.*a4 + 8.*a2*r + 8.*a2*r2 + 8.*r2*r2 +
+            4.*(dbl_r2-rS+rQ+a2)*a2cc + a4*CC)*m_s)*(R_1/2.0);
+
+    //end_t = clock();
+    //prof_t += (end_t - start_t);
+}
+
 
 /*
 DEVICEFUNC INLINE
