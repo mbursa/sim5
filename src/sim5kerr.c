@@ -1143,7 +1143,7 @@ double gfactorK(double r, double a, double l)
 
 
 DEVICEFUNC
-void photon_momentum(double a, double r, double m, double l, double q, double r_sign, double m_sign, double k[4])
+void photon_momentum(double a, double Q, double r, double m, double l, double q, double r_sign, double m_sign, double k[4])
 //! Photon 4-momentum vector .
 //! Returns photon 4-momentum vector k^\mu such that k*k=0 (null vector).
 //! The orientation of the resulting vector `k` is given by the signs of `r_sign` and `m_sign` parameters.
@@ -1165,7 +1165,7 @@ void photon_momentum(double a, double r, double m, double l, double q, double r_
     double r2 = sqr(r);
     double m2 = sqr(m);
     double S = r2 + a2*m2;
-    double D = r2 - 2.*r + a2;
+    double D = r2 - 2.*r + a2 + sqr(Q);
 
     // after Li+05
     double R = sqr(r2+a2-a*l) - D*( sqr(l-a) + q );        // dr/dl; eq.A2

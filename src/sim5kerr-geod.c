@@ -66,8 +66,6 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
         return FALSE;
     }
 
-    if (beta == 0.0) beta = +1e-6;
-
     g->a = fmax(1e-4, a);
     g->incl  = i;
     g->cos_i = cos(i);
@@ -818,7 +816,7 @@ void geodesic_momentum(geodesic *g, double P, double r, double m, double k[])
         case GEOD_TYPE_RC:
         case GEOD_TYPE_CC:
             dm = geodesic_dm_sign(g, P);
-            photon_momentum(g->a, r, m, g->l, g->q, (P<g->Rpc?-1:+1), dm, k);
+            photon_momentum(g->a, 0.0, r, m, g->l, g->q, (P<g->Rpc?-1:+1), dm, k);
             return;
             
         case GEOD_TYPE_RR_DBL:

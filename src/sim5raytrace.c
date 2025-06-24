@@ -63,19 +63,24 @@ void raytrace_prepare(double bh_spin, double x[4], double k[4], double presision
 //! @param rtd raytracing data
 {
     // read options
-    rtd->opt_gr  = !((options & RTOPT_FLAT) == RTOPT_FLAT);
     rtd->step_epsilon = sqrt(presision_factor)/10.;   // note: precision ~ (step_epsilon)^2; step_epsilon=0.1 gives reasonable precision ~1e-3
 
     // evaluate metric and connection 
     sim5metric m;
     double G[4][4][4];
-    rtd->opt_gr ? kerr_metric(bh_spin, x[1], x[2], &m) : flat_metric(x[1], x[2], &m);
-    rtd->opt_gr ? kerr_connection(bh_spin, x[1], x[2], G) : flat_connection(x[1], x[2], G);
+    if (rtd->metric && rtd->connection) {
+        rtd->metric(x[1], x[2], rtd->metric_params, &m);
+        rtd->connection(x[1], x[2], rtd->metric_params, G);
+    } else {
+        rtd->metric_params[0] = bh_spin;
+        kerr_metric(bh_spin, x[1], x[2], &m);
+        kerr_connection(bh_spin, x[1], x[2], G);
+    }
 
     // check that k.k=0
     double kk = dotprod(k, k, &m);
     #ifndef CUDA
-    if (fabs(kk) > 1e-10) fprintf(stderr,"ERR (kerr_raytrace_prepare): k is not a null vector (k.k=%.3e)\n", kk);
+    if (fabs(kk) > 1e-10) fprintf(stderr,"WRN (kerr_raytrace_prepare): k is not a null vector (k.k=%.3e)\n", kk);
     #endif
 
     // set motion constants
@@ -181,13 +186,13 @@ void raytrace(double x[4], double k[4], double *step, raytrace_data* rtd)
     for (i=0;i<4;i++) k[i] += dk[i]*half_dl;
 
     // update metric and connection
-    if (rtd->opt_gr) {
-        kerr_metric(rtd->bh_spin, xp[1], xp[2], &m);
-        kerr_connection(rtd->bh_spin, xp[1], xp[2], G);
+    if (rtd->metric && rtd->connection) {
+        rtd->metric(xp[1], xp[2], rtd->metric_params, &m);
+        rtd->connection(xp[1], xp[2], rtd->metric_params, G);
     } else {
-        flat_metric(xp[1], xp[2], &m);
-        flat_connection(xp[1], xp[2], G);
-    }; 
+        kerr_metric(rtd->metric_params[0], xp[1], xp[2], &m);
+        kerr_connection(rtd->metric_params[0], xp[1], xp[2], G);
+    }
 
     // step 2: estimate new value for k and f (Dolence+09, Eq.14b)
     for (i=0;i<4;i++) kp[i] = k[i] + dk[i]*half_dl;
@@ -269,22 +274,22 @@ void raytrace_rk4(double x[4], double k[4], double dl, raytrace_data* rtd)
     x[2] = acos(x[2]);
 
 	for (i=0; i<4; i++) xp[i] = x[i];
-    rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
+    kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G);
 	for (i=0; i<4; i++) k1[i] = k[i];
     Gamma(G, k1, k1, dk1);
 
 	for (i=0; i<4; i++) xp[i] = x[i] + k1[i]*dl_2;
-    rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
+    kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G);
 	for (i=0; i<4; i++) k2[i] = k[i] + dk1[i]*dl_2;
     Gamma(G, k2, k2, dk2);
 
 	for (i=0; i<4; i++) xp[i] = x[i] + k2[i]*dl_2;
-    rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
+    kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G);
 	for (i=0; i<4; i++) k3[i] = k[i] + dk2[i]*dl_2;
     Gamma(G, k3, k3, dk3);
 
 	for (i=0; i<4; i++) xp[i] = x[i] + k3[i]*dl;
-    rtd->opt_gr ? kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G) : flat_connection(xp[1], cos(xp[2]), G);
+    kerr_connection(rtd->bh_spin, xp[1], cos(xp[2]), G);
 	for (i=0; i<4; i++) k4[i] = k[i] + dk3[i]*dl;
     Gamma(G, k4, k4, dk4);
 
@@ -298,7 +303,7 @@ void raytrace_rk4(double x[4], double k[4], double dl, raytrace_data* rtd)
 	x[2] = cos(x[2]);
 
     // update values for momentum and polarization vector derivatives
-    rtd->opt_gr ? kerr_connection(rtd->bh_spin, x[1], x[2], G) : flat_connection(x[1], x[2], G);
+    kerr_connection(rtd->bh_spin, x[1], x[2], G);
     Gamma(G, k, k, rtd->dk);
 
 
@@ -338,7 +343,7 @@ double raytrace_error(double x[4], double k[4], raytrace_data* rtd)
 //! @result Relative error in raytracing.
 {
     sim5metric m;
-    rtd->opt_gr ? kerr_metric(rtd->bh_spin, x[1], x[2], &m) : flat_metric(x[1], x[2], &m);
+    kerr_metric(rtd->bh_spin, x[1], x[2], &m);
     return frac_error(rtd->Q, photon_carter_const(k,&m));
 }
 

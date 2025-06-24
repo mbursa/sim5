@@ -210,7 +210,7 @@ void test_geodesic_init_src()
             //printf("%.4f %.4f  %e  %e\n", alpha, beta, r, phi);
 
             double k[4];
-            photon_momentum(a, r, 0.0, gd1.l, gd1.q, pa?-1.0:+1.0, -1.0, k);
+            photon_momentum(a, 0.0, r, 0.0, gd1.l, gd1.q, pa?-1.0:+1.0, -1.0, k);
 
 
             geodesic_init_src(a, r, 0.0, k, pa, &gd2, &status);

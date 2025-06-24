@@ -16,15 +16,18 @@
 extern "C" {
 #endif
 
+#include "sim5kerr.h"
+
 
 // options for raytracing
 #define RTOPT_NONE              0         // option for default actions
-#define RTOPT_FLAT              1         // assumes Minkowski (flat) metric instead of Kerr
 #define RTOPT_POLARIZATION      2         // track change of polarization vector
 
 
 typedef struct raytrace_data {
-    int opt_gr;             // the metric: 1=Kerr metric, 0=flat metric
+    double metric_params[10];
+    void (*metric)(double r, double m, double metric_params[], sim5metric *metric);
+    void (*connection)(double r, double m, double metric_params[], double G[4][4][4]);
     int opt_pol;            // polarization: 1=follow transport of f, 0=ignore f
     double step_epsilon;    // step size control factor (note: precision ~ step^2)
 

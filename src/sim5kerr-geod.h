@@ -42,6 +42,7 @@ extern "C" {
 typedef struct geodesic {
     // parameters for BH and observer
 	double a;                                // BH spin
+        double Q;                                // BH charge
 	double alpha;                            // impact alpha (horizontal)
 	double beta;                             // impact beta (vertical)
 	double incl;                            // cosine of inclination

@@ -151,7 +151,7 @@ DEVICEFUNC INLINE
 double gfactorK(double r, double a, double l);
 
 DEVICEFUNC
-void photon_momentum(double a, double r, double m, double l, double q, double r_sign, double m_sign, double k[4]);
+void photon_momentum(double a, double Q, double r, double m, double l, double q, double r_sign, double m_sign, double k[4]);
 
 DEVICEFUNC
 void photon_motion_constants(double a, double r, double m, double k[4], double* L, double* Q);
