@@ -27,14 +27,14 @@ clean:
 
 lib: lib-clean
 	@[ -f src/sim5config.h ] || cp src/sim5config.h.default src/sim5config.h
-	$(CC) -c src/sim5lib.c -o src/sim5lib.o $(CFLAGS) $(LFLAGS)
+	$(CC) -Wa,--noexecstack -c src/sim5lib.c -o obj/sim5lib.o $(CFLAGS) $(LFLAGS)
 
 cuda: lib-clean nvcc-check
 	nvcc -arch=sm_35 -Isrc -Lsrc -O3 -dc src/sim5lib.cu
 
 lib-clean:
 	@echo "Cleaning..."
-	@rm -f src/*.o
+	@rm -f lib/*.o
 
 python: lib
 ifndef EXISTS_SWIG
@@ -44,13 +44,13 @@ ifndef EXISTS_PYDEV
 	$(error "FAILED PREREQUISITY: header files for Python are not installed, install it with apt install python3-dev")
 endif
 	@mkdir -p lib
-	swig -python -py3 -w314 -w301 src/sim5lib.swig
+	swig -python -w314 -w301 src/sim5lib.swig
 	@mv src/sim5lib.py python/sim5lib.py
 	@sed -i "s/'_sim5lib'/'sim5lib'/g" python/sim5lib.py
 	@sed -i "s/_sim5lib/sim5lib/g" src/sim5lib_wrap.c
 #	cat python/sim5*.py >> lib/sim5lib.py
-	$(CC) -c src/sim5lib_wrap.c -o src/sim5lib_wrap.o $(CFLAGS) $(PYDEV_INC) $(LFLAGS) -w
-	$(CC) -shared src/sim5lib.o src/sim5lib_wrap.o $(CFLAGS) $(LFLAGS) -o lib/sim5lib.so
+	$(CC) -c src/sim5lib_wrap.c -o obj/sim5lib_wrap.o $(CFLAGS) $(PYDEV_INC) $(LFLAGS) -w
+	$(CC) -shared obj/sim5lib.o obj/sim5lib_wrap.o $(CFLAGS) $(LFLAGS) -o lib/sim5lib.so
 	patch python/sim5lib.py python/sim5lib.py.patch
 	@rm -f src/*_wrap.*
 
@@ -64,7 +64,7 @@ export:
 	@echo "#include \"sim5lib.h\"" > lib/sim5lib.c
 	@for i in `cat src/sim5lib.c | grep -e '^\#include ".*.c"$$' | sed -n  's/.*"\(.*\)"/\1/p'`; do cat src/$$i >> lib/sim5lib.c; done
 	@sed -i 's/[ \t]*$$//;/^\/\//d;s/\/\/.*$$//;s/    / /' lib/sim5lib.c
-	$(CC) -c lib/sim5lib.c -o lib/sim5lib.o $(CFLAGS) $(LFLAGS)
+	$(CC) -Wa,--noexecstack -c lib/sim5lib.c -o lib/sim5lib.o $(CFLAGS) $(LFLAGS)
 
 
 debug: lib
@@ -73,8 +73,8 @@ debug: lib
 
 test: lib
 	@rm -f bin/sim5lib-tests
-	$(CC) -c src/sim5unittests.c -o src/sim5unittests.o $(CFLAGS) $(LFLAGS)
-	$(CC) src/sim5unittests.o src/sim5lib.o -o bin/sim5lib-tests $(CFLAGS) $(LFLAGS)
+	$(CC) -c src/sim5unittests.c -o obj/sim5unittests.o $(CFLAGS) $(LFLAGS)
+	$(CC) obj/sim5unittests.o lib/sim5lib.o -o bin/sim5lib-tests $(CFLAGS) $(LFLAGS)
 	if [ -e bin/sim5lib-tests ]; then bin/sim5lib-tests; fi
 
 .PHONY: doc python
