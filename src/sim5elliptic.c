@@ -500,7 +500,7 @@ double jacobi_icn(double z, double m)
     if (z==0.0) return elliptic_k(m);
     if (z==1.0) return 0.0;
     if (m==0.0) return acos(z);                     // BF 132.02
-    if (m==1.0) return log((1.+sqrt(1.-z))/z);      // BF 132.01
+    if (m==1.0) return log((1.+sqrt(1.-z*z))/z);    // BF 132.01: inverse of sech(u)
 
     #ifndef CUDA
     if (fabs(z)>1.0) error("jacobi_icn: u>1 (%.10e)", z);
@@ -517,14 +517,14 @@ double jacobi_icn(double z, double m)
 // jacobi_itn(z,m) = tn^{-1}(z, m), the inverse Jacobian elliptic function tn()
 // BF 131.00
 // Note m=k^2 in BF notation.
-// tn^{-1}(z,m) = sn^{-1}(sqrt[z^2/(1+z^2)], m)
-// Applicable only if 0 <= m <1 and -1 <= u <= 1.
+// tn^{-1}(z,m) = sign(z)*sn^{-1}(sqrt[z^2/(1+z^2)], m)
+// Principal real branch; 0 <= m <= 1.
 DEVICEFUNC INLINE
 double jacobi_itn(double z, double m)
 {
     if (m==0.0) return atan(z);              // BF 132.02
     if (m==1.0) return log(z+sqrt(1.+z*z));  // BF 132.01
-    return jacobi_isn(sqrt(z*z/(1.+z*z)), m);
+    return copysign(jacobi_isn(sqrt(z*z/(1.+z*z)), m), z);
 }
 
 
