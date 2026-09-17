@@ -35,6 +35,8 @@ extern "C" {
 #define GD_ERROR_MM_RANGE              10
 #define GD_ERROR_INCL_RANGE            11
 #define GD_ERROR_SPIN_RANGE            12
+#define GD_ERROR_ARGUMENT              13
+#define GD_ERROR_NUMERICAL             14
 
 
 
@@ -68,6 +70,15 @@ typedef struct geodesic {
 	double p;                                // value of R/T integrals for some particular solution (code's affine parameter)
 } geodesic;
 
+// First future intersection; found=0 and NaN coordinates mean no intersection.
+typedef struct geodesic_intersection {
+    int found;
+    double P, r, m;
+} geodesic_intersection;
+
+DEVICEFUNC int geodesic_find_src_intersections(geodesic *g, double r, double m,
+    double k[4], double target_r, geodesic_intersection *equator,
+    geodesic_intersection *sphere, int *error);
 
 DEVICEFUNC int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g, int *error);
 DEVICEFUNC int geodesic_init_src(double a, double r, double m, double k[4], int bpa, geodesic *g, int *error);

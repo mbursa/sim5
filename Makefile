@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas -O3 -fPIC -Isrc -Lsrc -std=gnu11 -fgnu89-inline
+CFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas -O3 -fPIC -Isrc -Lsrc -std=gnu11 -fgnu89-inline -std=gnu17
 LFLAGS = -lm
 
 CC=gcc

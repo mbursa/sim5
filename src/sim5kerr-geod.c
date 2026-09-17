@@ -56,6 +56,7 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
 //!         returned in `error` parameter. Information about the geodesic is stored in structure g.
 {
 
+    // validate the observer and spin before constructing trajectory constants.
     if ((a < 0.0) || (a > 1.-1e-6)) {
         if (error) *error = GD_ERROR_SPIN_RANGE;
         return FALSE;
@@ -65,6 +66,9 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
         if (error) *error = GD_ERROR_INCL_RANGE;
         return FALSE;
     }
+
+    // retain the existing regularization of a precisely horizontal image-plane ray.
+    if (beta == 0.0) beta = +1e-6;
 
     g->a = fmax(1e-4, a);
     g->incl  = i;
@@ -86,6 +90,16 @@ int geodesic_init_inf(double i, double a, double alpha, double beta, geodesic *g
     // get geodesic
     if (!geodesic_priv_R_roots(g, DBL_MAX, error)) return FALSE;
     if (!geodesic_priv_T_roots(g, g->cos_i, error)) return FALSE;
+
+    // vortical motion stays in one hemisphere and needs a dn phase, not cn.
+    if (g->q<0.0) {
+        double phase=geodesic_priv_dn_phase(g,g->cos_i);
+        if (g->beta*g->cos_i>0.0) phase=-phase;
+        g->Tip=phase*g->mK;
+        g->Tpp=2.0*g->mK*elliptic_k(g->mm);
+        if (error) *error=GD_OK;
+        return TRUE;
+    }
 
     // value of T-integral between turning points \int[-\mu_plus..\mu_plus]
 	g->Tpp = 2.*theta_int(0.0);
@@ -117,54 +131,79 @@ int geodesic_init_src(double a, double r, double m, double k[4], int ppc, geodes
 //! @result Returns TRUE on success or FALSE on error. In the latter case, an non-zero error code is 
 //!         returned in `error` parameter. Information about the geodesic is stored in structure g.
 {
+    // reject sources for which the local coordinate description is not usable.
+    if (!isfinite(a) || a<0.0 || a>=1.0 || !isfinite(r) ||
+        r<=r_bh(a) || !isfinite(m) || fabs(m)>=1.0) {
+        if (error) *error=GD_ERROR_ARGUMENT;
+        return FALSE;
+    }
     // calculate motion constants
     double l,q;
     photon_motion_constants(a, r, m, k, &l, &q);
 
-    g->a = fmax(1e-8, a);
+    g->a = a;
+    g->Q = 0.0;
     g->l = l;
     g->q = q;
+    if (!isfinite(l) || !isfinite(q)) { if (error) *error=GD_ERROR_ARGUMENT; return FALSE; }
 
-    // ...
+    // retain the emission momentum and handle the exact radial Schwarzschild limit.
+    for (int j=0; j<4; ++j) g->k[j]=k[j];
+    if (a==0.0 && l==0.0 && q==0.0) {
+        g->type=GEOD_TYPE_RR_DBL; g->nrr=4;
+        g->r1=g->r2=g->r3=g->r4=makeComplex(0.0,0.0);
+        g->rp=0.0; g->Rpc=INFINITY;
+        g->m2p=m*m; g->m2m=g->mm=0.0; g->mK=g->Tpp=INFINITY;
+        g->p=1.0/r; g->cos_i=m; g->incl=acos(m);
+        g->alpha=g->beta=g->Tip=0.0;
+        if (error) *error=GD_OK;
+        return TRUE;
+    }
+    // initialize observer quantities only after the radial and polar roots are valid.
     g->cos_i = g->alpha = g->beta = NAN;
 
     if (!geodesic_priv_R_roots(g, r, error)) return FALSE;
     if (!geodesic_priv_T_roots(g, m, error)) return FALSE;
     
-    // r is bellow radial turning point - this geodesic cannot escape
-    //if (r < g->rp) {
-    //    //TODO: should be implemented at some point
-    //    if (error) *error = GD_ERROR_BOUND_GEODESIC;
-    //    return FALSE;
-    //}
-
-    // determine at-infinity parameters of the geodesic (inclination, impact parameters)
-    // - inclination is poloidal coordinate to which the photon in its current direction will arrive
-    if (isnan(g->cos_i) && (r > g->rp)) {
-        double T, Tmp, Tpp, sign_dm;
-        Tmp = theta_int(m);                         // int_{\mu}^{\mu_plus}
-        Tpp = 2.*theta_int(0.0);                    // int_{-\mu_plus}^{\mu_plus}
-        T = geodesic_P_int(g, r, ppc);              // int_{r}^{\inf}
-        sign_dm = (k[2]<0.0) ? +1.0 : -1.0;           // increasing m = decreasing theta
-        //fprintf(stderr,"Tmp=%.3e, Tpp=%.3e, T=%.3e, sdm=%+.0e\n", Tmp, Tpp, T, sign_dm);
-        T += (sign_dm>0.0) ? Tpp-Tmp : Tmp;
-        //fprintf(stderr,"T2=%.3e\n", T);
-        while (T > Tpp) {
-            T -= Tpp;
-            sign_dm = -sign_dm;
-        }
-        //fprintf(stderr,"T3=%.3e\n", T);
-        g->cos_i = -sign_dm*theta_inv(T);
-        g->incl  = acos(g->cos_i);
-        g->alpha = -g->l/sqrt(1.0-sqr(g->cos_i));
-        g->beta  = -sign_dm * sqrt(g->q - sqr(g->cos_i)*(sqr(g->alpha)-sqr(g->a)));
+    // store the source parameter using the appropriate outer or inner radial branch.
+    g->p=geodesic_P_int(g,r,g->type==GEOD_TYPE_RR_BH ? k[1]<0.0 : ppc);
+    if (!isfinite(g->p)) { if (error) *error=GD_ERROR_NUMERICAL; return FALSE; }
+    // anchor the vortical phase at infinity while preserving the source direction.
+    if (q<0.0) {
+        double direction=(g->type==GEOD_TYPE_RC || g->type==GEOD_TYPE_CC) && k[1]>=0.0 ? -1.0 : 1.0;
+        double dm_dP=(k[2]<0.0 ? 1.0 : -1.0)*direction;
+        double phase=geodesic_priv_dn_phase(g,m);
+        if (dm_dP*m>0.0) phase=-phase;
+        // use an unwrapped phase so time integrals count complete polar oscillations.
+        phase-=g->p/g->mK;
+        g->Tip=phase*g->mK;
+        g->Tpp=2.0*g->mK*elliptic_k(g->mm);
+        // recover the observer coordinates without crossing to the opposite hemisphere.
+        g->cos_i=copysign(sqrt(g->m2p)*geodesic_priv_dn(g,phase),m);
+        g->incl=acos(g->cos_i);
+        g->alpha=-l/sqrt(1.0-sqr(g->cos_i));
+        double folded=phase-floor(phase/(2.0*elliptic_k(g->mm)))*2.0*elliptic_k(g->mm);
+        double sign_dm=copysign(1.0,m)*(folded<elliptic_k(g->mm) ? -1.0 : 1.0);
+        g->beta=sign_dm*sqrt(fmax(0.0,q-sqr(g->cos_i)*(sqr(g->alpha)-a*a)));
+        if (error) *error=GD_OK;
+        return TRUE;
     }
 
-    // value of T-integral between turning points \int[-\mu_plus..+\mu_plus]
-	g->Tpp = 2.*theta_int(0.0);
-
-    // value of T-integral between observer's position and turning point \int[cos_i..\mu_plus]
-	g->Tip = theta_int(g->cos_i);
+    // match the cn phase and its direction to the actual source, including outgoing RC rays.
+    double direction=(g->type==GEOD_TYPE_RC || g->type==GEOD_TYPE_CC) && k[1]>=0.0 ? -1.0 : 1.0;
+    double dm_dP=(k[2]<0.0 ? 1.0 : -1.0)*direction;
+    double phase=jacobi_icn(fmax(-1.0,fmin(1.0,m/sqrt(g->m2p))),g->mm);
+    if (dm_dP>0.0) phase=-phase;
+    phase-=g->p/g->mK;
+    // reduce the phase while retaining the sign that determines the observer's beta.
+    double K=elliptic_k(g->mm);
+    phase-=floor((phase+2.0*K)/(4.0*K))*4.0*K;
+    g->Tpp=2.0*K*g->mK;
+    g->Tip=fabs(phase)*g->mK;
+    g->cos_i=sqrt(g->m2p)*jacobi_cn(fabs(phase),g->mm);
+    g->incl=acos(g->cos_i);
+    g->alpha=-l/sqrt(1.0-sqr(g->cos_i));
+    g->beta=(phase<0.0 ? 1.0 : -1.0)*sqrt(fmax(0.0,q-sqr(g->cos_i)*(sqr(g->alpha)-a*a)));
 
     if (error) *error = GD_OK;
     return TRUE;
@@ -192,18 +231,28 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
 //!
 //! @result     Value of the position integral between infinity and given point.
 {
+    // the exact radial limit has a simple positional integral with no turning point.
+    if (g->a==0.0 && g->l==0.0 && g->q==0.0) return 1.0/r;
+    // compactify the CC integral at infinity instead of inventing a pericenter.
+    if (g->type==GEOD_TYPE_CC) {
+        if (!(r>r_bh(g->a))) return NAN;
+        return geodesic_priv_cc_integral(g,0.0,1.0/r,0);
+    }
+
     double r1,r2,r3,r4,u,v, mm, R, A, B;
 
+    // the inner four-root branch lies below its upper turning radius by construction.
     #ifdef CUDA
-    if (r  < g->rp) asm("exit;");
+    if (r < g->rp && g->type!=GEOD_TYPE_RR_BH) asm("exit;");
     #else
-    if (r  < g->rp) error("(geodesic_P_int): r < periastron (%.3e < %.3e; nrr=%d)", r, g->rp, g->nrr);
+    if (r < g->rp && g->type!=GEOD_TYPE_RR_BH) error("(geodesic_P_int): r < periastron (%.3e < %.3e; nrr=%d)", r, g->rp, g->nrr);
     #endif
     if (r == g->rp) return g->Rpc;
 
 
     switch (g->type) {
         case GEOD_TYPE_RR:
+            // distinguish the ingoing and outgoing portions of the outer allowed region.
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -219,6 +268,7 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
             return NAN;
 
         case GEOD_TYPE_RR_BH:
+            // measure the inner branch relative to its upper radial turning point.
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -228,6 +278,7 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
             return (ppc) ? g->Rpc + R : g->Rpc - R;
 
         case GEOD_TYPE_RC:
+            // the exterior RC branch is monotonic, so its parameter runs from infinity inward.
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             u  = creal(g->r3);
@@ -237,23 +288,10 @@ double geodesic_P_int(geodesic *g, double r, int ppc)
             mm = (sqr(A+B) - sqr(r1-r2)) / (4.*A*B);
             R  = 1./sqrt(A*B) * jacobi_icn(((A-B)*r+r1*B-r2*A)/((A+B)*r-r1*B-r2*A), mm);
             //if (R > g->Rpc) fprintf(stderr, "RC: res=%e Rpc=%e R=%e r=%.4e r1=%.4e r2=%.4e A=%.4e B=%.4e mm=%.4e z=%.4e icn=%.4e\n", g->Rpc-R, g->Rpc, R, r, r1, r2, A, B, mm, ((A-B)*r+r1*B-r2*A)/((A+B)*r-r1*B-r2*A), jacobi_icn(((A-B)*r+r1*B-r2*A)/((A+B)*r-r1*B-r2*A), mm));
-            // RC case has no turning point, so P can be 0 < P < Rpc
+            // the RC case has no exterior turning point, so 0 < P < Rpc.
             return g->Rpc-R;
 
-        case GEOD_TYPE_CC:
-            r1 = creal(g->r1);  //b1
-            r2 = creal(g->r3);  //b2
-            r3 = cimag(g->r1);  //a1
-            r4 = cimag(g->r3);  //a2
-            A = sqrt(sqr(r1-r2) + sqr(r3+r4));
-            B = sqrt(sqr(r1-r2) + sqr(r3-r4));
-            double g1 = sqrt((4.*sqr(r3)-sqr(A-B))/(sqr(A+B)-4.*sqr(r3)));
-            mm = 4.*A*B/sqr(A+B);
-            R = 2./(A+B) * jacobi_itn((r-r1+r3*g1)/(r3+r1*g1-g1*r), mm);
-            if ((R)<0) {
-                fprintf(stderr, "CC: res=%e ppc=%d Rpc=%e R=%e\n", R, ppc, g->Rpc, R);
-            }
-            return g->Rpc-R;
+
     }
 
     // this point should never be reached
@@ -296,8 +334,26 @@ double geodesic_position_rad(geodesic *g, double P)
 //!
 //! @result Radial coordinate value [GM/c^2] or NAN in case of error.
 {
+    // invert the exact radial limit without introducing elliptic singularities.
+    if (g->a==0.0 && g->l==0.0 && g->q==0.0) return P>0.0 ? 1.0/P : NAN;
+    // invert the monotonic exterior CC integral on a finite inverse-radius bracket.
+    if (g->type==GEOD_TYPE_CC) {
+        double lo=0.0,hi=1.0/r_bh(g->a);
+        double maxP=geodesic_priv_cc_integral(g,0.0,hi,0);
+        if (!(P>0.0 && P<maxP)) return NAN;
+        // retain the bracket until the radius is resolved to floating-point precision.
+        for (int i=0; i<60; ++i) {
+            double u=(lo+hi)/2.0;
+            double value=geodesic_priv_cc_integral(g,0.0,u,0);
+            if (!isfinite(value)) return NAN;
+            if (value<P) lo=u; else hi=u;
+        }
+        return 2.0/(lo+hi);
+    }
+
     double r1,r2,r3,r4,u,v;
 
+    // reject parameters outside the established analytic branch domain.
     if ((P<=0.0)||(P>=2.*g->Rpc)) {
         #ifndef CUDA
         error("(geodesic_position_rad) P out of range (P=%e, 2Rpa=%e)", P, 2*g->Rpc);
@@ -308,6 +364,7 @@ double geodesic_position_rad(geodesic *g, double P)
 
     switch (g->type) {
         case GEOD_TYPE_RR:
+            // the absolute phase covers both sides of the outer radial turning point.
             r1 = creal(g->r1);
             r2 = creal(g->r2);
             r3 = creal(g->r3);
@@ -330,7 +387,8 @@ double geodesic_position_rad(geodesic *g, double P)
             return NAN;
 
         case GEOD_TYPE_RC:
-            // RC case has no turning point, so P cannot be larger than Rpc
+            // invert the monotonic mixed-root branch using its Jacobi cn solution.
+            // the RC case has no exterior turning point, so P cannot exceed Rpc.
             if (P > g->Rpc) return NAN;
             r1 = creal(g->r1);
             r2 = creal(g->r2);
@@ -343,11 +401,7 @@ double geodesic_position_rad(geodesic *g, double P)
             //fprintf(stderr, "r-RC: mm=%.4e z=%.4e icn=%.4e  r=%.4e\n", m2, sqrt(A*B)*(g->Rpc-P), cn, (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn ));
             return (r2*A - r1*B - (r2*A+r1*B)*cn ) / ( (A-B) - (A+B)*cn );
         
-        case GEOD_TYPE_CC:
-            #ifndef CUDA
-            error("(geodesic_position_rad): not implemented for GEOD_TYPE_CC");
-            #endif
-            return NAN;
+
     }
 
     // this point should never be reached
@@ -368,6 +422,12 @@ double geodesic_position_pol(geodesic *g, double P)
 //!
 //! @result Poloidal coordinate value [cos(theta)] or NAN in case of error.
 {
+    // vortical rays retain their hemisphere while the dn phase repeats.
+    if (g->q<0.0)
+        return copysign(sqrt(g->m2p)*geodesic_priv_dn(g,(g->Tip+P)/g->mK),g->cos_i);
+    // a radial Schwarzschild photon keeps its initial polar angle.
+    if (g->a==0.0 && g->l==0.0 && g->q==0.0) return g->cos_i;
+
     double sign_dm, T;
 
     switch (g->type) {
@@ -457,101 +517,125 @@ double geodesic_position_pol_sign_k_theta(geodesic *g, double P)
 
 
 
+DEVICEFUNC static double geodesic_priv_azm_phase(double phase, double complement, double mm)
+//! Unwrapped third-kind elliptic primitive for the polar azimuth integral.
+//! - integrates 1/(1-n*sn(x|mm)^2) from x=0 to an arbitrary signed phase
+//! - counts full 2K periods explicitly so complete azimuthal windings are retained
+//! - uses Carlson integrals with an explicit 1-n to retain precision near the axis
+//! @param phase dimensionless Jacobi phase, including any complete polar periods
+//! @param complement positive 1-n, where the elliptic characteristic n is in [0,1)
+//! @param mm elliptic parameter in [0,1)
+//! @result Signed dimensionless primitive; the caller supplies the angular scale.
+{
+    // retain complete periods before evaluating the principal elliptic integral.
+    double K=elliptic_k(mm), n=1.0-complement;
+    double complete=rf(0.0,1.0-mm,1.0)+n*rj(0.0,1.0-mm,1.0,complement)/3.0;
+    double cycles=floor(phase/(2.0*K)), rem=phase-cycles*2.0*K;
+    // keep cn squared and 1-n explicit to avoid subtracting nearly equal numbers.
+    double sn,cn,dn;
+    jacobi_sncndn(fmin(rem,2.0*K-rem),mm,&sn,&cn,&dn);
+    double s2=sn*sn, c2=cn*cn;
+    double partial=sn*(rf(c2,dn*dn,1.0)+n*s2*rj(c2,dn*dn,1.0,c2+complement*s2)/3.0);
+    if (rem==K) partial=complete;
+    // reflection about K handles either half of a polar period continuously.
+    return 2.0*cycles*complete+(rem>K ? 2.0*complete-partial : partial);
+}
+
 DEVICEFUNC
 double geodesic_position_azm(geodesic *g, double r, double m, double P)
-//! Azimuthal coordinate value at which the position integral gains value P.
-//! Given the value \f$P\f$ of the positional integral along the geodesic, the function computes
-//! the azimuthal coordinate for the position. 
-//! The value of azimuthal angle is assumed to be zero at infinity and
-//! the function gives the change of the angle between
-//! the point [r,m] and infinity.
-//!
-//! @param g  geodesic data
-//! @param r  radial coordinate of the current position
-//! @param m  poloidal coordinate of the current position
-//! @param P  value of the position integral
-//!
-//! @result Difference between azimuthal angle at [r,m] and at infinity [radians]. The result can be larger than 2pi.
+//! Unwrapped azimuthal primitive measured from infinity (P=0).
+//! - integrates dphi/dP=(2*a*r-l*a^2)/Delta+l/(1-m^2), Bursa (2017), Eq. (20)
+//! - includes radial turning points for RR and polar turning points for both signs of q
+//! - uses elliptic radial integrals for RR/RC and convergent radial quadrature for CC
+//! - supports zero spin, including the exact radial Schwarzschild limit
+//! @param g initialized geodesic with its polar phase anchored at P=0
+//! @param r exterior Boyer-Lindquist radius; zero requests inference of both r and m
+//! @param m cos(theta) at P; must correspond to the same trajectory position
+//! @param P nonnegative positional integral, with P=0 denoting the reference infinity
+//! @result Signed angle in radians, without reduction modulo 2*pi; NaN for invalid
+//! or unsupported positions. For future motion with decreasing P (outgoing RC/CC),
+//! negate the difference of endpoint primitives to obtain the physical azimuth change.
+//! Azimuth is a singular coordinate on the axis; an exactly axial crossing has no
+//! uniquely defined continuous azimuth there.
 {
-    double phi = 0.0;
-
-    int    ppc  = (g->nrr>0) && (P > g->Rpc);              // beyond periastron
-    double a2 = sqr(g->a);
-    double rp   = 1. + sqrt(1.-a2);
-    double rm   = 1. - sqrt(1.-a2);
-    double r1, r2, r3, r4, A, B;
-
-    switch (g->type) {
-        // trajectories that go to infinity
-        case GEOD_TYPE_RR:
-            r1 = creal(g->r1);
-            r2 = creal(g->r2);
-            r3 = creal(g->r3);
-            r4 = creal(g->r4);
-            A = integral_R_rp_re_inf(r1, r2, r3, r4, rp) + (ppc?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rp, r);
-            B = integral_R_rp_re_inf(r1, r2, r3, r4, rm) + (ppc?+1:-1)*integral_R_rp_re(r1, r2, r3, r4, rm, r);
-            phi += 1./sqrt(1.-a2) * ( A*(g->a*rp-g->l*a2/2.) - B*(g->a*rm-g->l*a2/2.) );
-            break;
-
-        case GEOD_TYPE_RR_DBL:
-            #ifndef CUDA
-            error("(geodesic_position_azm): not implemented for GEOD_TYPE_RR_DBL");
-            #endif
-            return NAN;
-
-        case GEOD_TYPE_RR_BH:
-            #ifndef CUDA
-            error("(geodesic_position_azm): not implemented for GEOD_TYPE_RR_BH");
-            #endif
-            return NAN;
-
-        case GEOD_TYPE_RC:
-            r1 = creal(g->r1);
-            r2 = creal(g->r2);
-            A = integral_R_rp_cc2_inf(r1, r2, g->r3, rp, r);
-            B = integral_R_rp_cc2_inf(r1, r2, g->r3, rm, r);
-            phi += 1./sqrt(1.-a2) * ( A*(g->a*rp-g->l*a2/2.) - B*(g->a*rm-g->l*a2/2.) );
-            //if (isnan(phi)) fprintf(stderr,"phi nan already 2 (%e %e)\n",g->a,rm);
-            break;
-
-        case GEOD_TYPE_CC:
-            #ifndef CUDA
-            error("(geodesic_position_azm): not implemented for GEOD_TYPE_CC");
-            #endif
-            return NAN;
+    // allow the reference infinity and infer coordinates only when explicitly omitted.
+    if (!isfinite(P) || P<0.0) return NAN;
+    if (P==0.0) return 0.0;
+    if (r==0.0) {
+        r=geodesic_position_rad(g,P);
+        m=geodesic_position_pol(g,P);
     }
-            
-    // part 2 - T integral
-    // TODO it should be checked if that works for photons with m2m<0
-    double phi_pp = 2.0*g->l/g->a*integral_T_mp(g->m2m, g->m2p, 1.0, 0.0);
-    double phi_ip =     g->l/g->a*integral_T_mp(g->m2m, g->m2p, 1.0, g->cos_i);
-    double phi_mp =     g->l/g->a*integral_T_mp(g->m2m, g->m2p, 1.0, m);
-
-    double T;
-    double sign_dm = (g->beta>=0.0) ? +1.0 : -1.0;
-    if (sign_dm > 0.0) {
-        T = -(g->Tpp-g->Tip);
-        phi -= phi_pp-phi_ip;
+    if (!isfinite(r) || r<=r_bh(g->a) || !isfinite(m) || fabs(m)>=1.0) return NAN;
+    // zero spin has no radial frame dragging, avoiding singular horizon primitives.
+    double phi=0.0, a2=sqr(g->a);
+    if (g->a!=0.0) {
+        double rp=1.0+sqrt(1.0-a2), rm=1.0-sqrt(1.0-a2);
+        double r1=creal(g->r1), r2=creal(g->r2), A, B;
+        switch (g->type) {
+            case GEOD_TYPE_RR: {
+                // reverse the radial leg after pericenter while keeping P increasing.
+                double sign=P>g->Rpc ? 1.0 : -1.0;
+                double r3=creal(g->r3), r4=creal(g->r4);
+                A=integral_R_rp_re_inf(r1,r2,r3,r4,rp)+sign*integral_R_rp_re(r1,r2,r3,r4,rp,r);
+                B=integral_R_rp_re_inf(r1,r2,r3,r4,rm)+sign*integral_R_rp_re(r1,r2,r3,r4,rm,r);
+                phi=(A*(g->a*rp-g->l*a2/2.0)-B*(g->a*rm-g->l*a2/2.0))/sqrt(1.0-a2);
+                break;
+            }
+            case GEOD_TYPE_RC:
+                // the exterior RC branch is monotonic between infinity and the horizon.
+                A=integral_R_rp_cc2_inf(r1,r2,g->r3,rp,r);
+                B=integral_R_rp_cc2_inf(r1,r2,g->r3,rm,r);
+                phi=(A*(g->a*rp-g->l*a2/2.0)-B*(g->a*rm-g->l*a2/2.0))/sqrt(1.0-a2);
+                break;
+            case GEOD_TYPE_CC:
+                // inverse radius makes the CC integral from infinity finite and smooth.
+                phi=geodesic_priv_cc_integral(g,0.0,1.0/r,2);
+                break;
+            default:
+                return NAN;
+        }
+    }
+    // zero angular momentum has no polar azimuth rate, even at zero spin.
+    if (g->l==0.0) return phi;
+    // recover 1-m2p from the polar potential at the axis, without cancellation.
+    double complement=g->a==0.0 ? sqr(g->l)/(g->q+sqr(g->l))
+                               : sqr(g->l)/(a2*(1.0+g->m2m));
+    if (!(complement>0.0)) return NAN;
+    // shift cn/dn by K so the third-kind primitive has a positive characteristic.
+    double phase0=(g->q<0.0 ? g->Tip : (g->beta>=0.0 ? -g->Tip : g->Tip))/g->mK;
+    phase0+=elliptic_k(g->mm);
+    double phase=phase0+P/g->mK;
+    double scale, linear, pi_complement;
+    if (g->q<0.0) {
+        double d=complement+g->m2p*g->mm;
+        linear=1.0;
+        scale=g->m2p*(1.0-g->mm)/d;
+        pi_complement=complement*(1.0-g->mm)/d;
     } else {
-        T = -g->Tip;
-        phi -= phi_ip;
+        double n=g->mm+g->m2p*(1.0-g->mm);
+        linear=g->mm/n;
+        scale=g->m2p*(1.0-g->mm)/n;
+        pi_complement=complement*(1.0-g->mm);
     }
-
-    while (P >= T+g->Tpp) {
-        T += g->Tpp;
-        phi += phi_pp;
-        sign_dm = -sign_dm;
-        break;
-    }
-
-    phi += (sign_dm<0) ? phi_mp : phi_pp-phi_mp;
-    //phi += (sign_dm<0) ? phi_mp : -phi_mp; //seems wrong
-
-    // change of sign here converts the integration from [r,m] to infinity
-    // to integration from infinity to [r,m]
+    // add the unwrapped polar contribution without losing complete turns.
+    phi+=g->l*(linear*P+g->mK*scale*(geodesic_priv_azm_phase(phase,pi_complement,g->mm)
+                                  -geodesic_priv_azm_phase(phase0,pi_complement,g->mm)));
     return phi;
 }
 
+
+
+/* V-phase for the polar time integral: int from m up to +sqrt(m2p) of
+ * m^2 dm/sqrt((m2p-m^2)(m^2+m2m)).  Rises as m falls, exactly as the polar
+ * phase theta_int does, so the two share a bounce structure and one fold
+ * serves both.  m^2 is even, hence the reflection for m < 0. */
+DEVICEFUNC
+double geodesic_priv_vphase(geodesic *g, double m)
+{
+    double J0 = integral_T_m2(g->m2m, g->m2p, 0.0);
+    double Jx = integral_T_m2(g->m2m, g->m2p, fabs(m));
+    return (m >= 0.0) ? Jx : 2.0*J0 - Jx;
+}
 
 
 DEVICEFUNC
@@ -564,12 +648,14 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
 //! @param g   geodesic data
 //! @param P1  value of the position integral at point A
 //! @param r1  value of the radial coordinate at point A; if zero, it is computed from P1 internally
-//! @param m1  value of the poloidal coordinate at point A (\f$m=cos(\theta)\f$); if zero, it is computed from P1 internally
+//! @param m1  cos(theta) at point A; inferred together with r1 only when r1=0
 //! @param P2  value of the position integral at point B
 //! @param r2  value of the radial coordinate at point B; if zero, it is computed from P2 internally
-//! @param m2  value of the poloidal coordinate at point B (\f$m=cos(\theta)\f$); if zero, it is computed from P2 internally
+//! @param m2  cos(theta) at point B; inferred together with r2 only when r2=0
 //!
-//! @result    Timedelay (positive) between position P1 and P2 (point A and B) or NAN in case of an error.
+//! @result Nonnegative coordinate time in GM/c^3, or NaN for invalid/unsupported endpoints.
+//! Endpoints must lie outside the horizon. RR/RC use elliptic radial integrals;
+//! CC uses convergent radial quadrature. Vortical (q<0) polar motion is included.
 {
     double time = 0.0;
 
@@ -581,6 +667,7 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
         tmp=m2; m2=m1; m1=tmp;
     }
 
+    // infer both coordinates only when the caller omits the radius.
     if (r1 == 0) {
         r1 = geodesic_position_rad(g, P1);
         m1 = geodesic_position_pol(g, P1);
@@ -591,6 +678,14 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
         m2 = geodesic_position_pol(g, P2);
     }
 
+
+    // coordinate time is defined here only between finite exterior endpoints.
+    if (!isfinite(P1) || !isfinite(P2) || !isfinite(r1) || !isfinite(r2) ||
+        !isfinite(m1) || !isfinite(m2) || r1<=r_bh(g->a) || r2<=r_bh(g->a)) return NAN;
+    if (P1==P2) return 0.0;
+    // use the exact radial Schwarzschild delay rather than singular elliptic limits.
+    if (g->a==0.0 && g->l==0.0 && g->q==0.0)
+        return fabs((r2-r1)+2.0*log((r2-2.0)/(r1-2.0)));
 
     double a2 = sqr(g->a);
     double rp   = 1. + sqrt(1.-a2);
@@ -611,12 +706,14 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
     switch (g->type) {
         // trajectories that go to infinity
         case GEOD_TYPE_RR:
+            // add radial legs across a turning point, otherwise subtract their primitives.
             s = (((P1 > g->Rpc)&&(P2 < g->Rpc)) || ((P1 < g->Rpc)&&(P2 > g->Rpc))) ? +1 : -1;
             R0 = integral_R_r0_re(ra, rb, rc, rd, r1)     + s*integral_R_r0_re(ra, rb, rc, rd, r2);
             R1 = integral_R_r1_re(ra, rb, rc, rd, r1)     + s*integral_R_r1_re(ra, rb, rc, rd, r2);
             R2 = integral_R_r2_re(ra, rb, rc, rd, r1)     + s*integral_R_r2_re(ra, rb, rc, rd, r2);
             RA = integral_R_rp_re(ra, rb, rc, rd, rp, r1) + s*integral_R_rp_re(ra, rb, rc, rd, rp, r2);
-            RB = integral_R_rp_re(ra, rb, rc, rd, rm, r1) + s*integral_R_rp_re(ra, rb, rc, rd, rm, r2);
+            // the inner-horizon term vanishes at zero spin; do not evaluate its singular primitive.
+            RB = a2==0.0 ? 0.0 : integral_R_rp_re(ra, rb, rc, rd, rm, r1) + s*integral_R_rp_re(ra, rb, rc, rd, rm, r2);
             A = (-g->a*g->l+4.)*rp - 2.*a2;
             B = (+g->a*g->l-4.)*rm + 2.*a2;
             time += 4.*fabs(R0) + 2.*fabs(R1) + fabs(R2) + (A*fabs(RA) + B*fabs(RB))/sqrt(1.-a2);
@@ -638,11 +735,13 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
             return NAN;
 
         case GEOD_TYPE_RC:
+            // this exterior radial branch is monotonic, so use endpoint differences.
             R0 = integral_R_r0_cc(ra, rb, g->r3, r1) -integral_R_r0_cc(ra, rb, g->r3, r2);
             R1 = (r1<r2) ? integral_R_r1_cc(ra, rb, g->r3, r1, r2) : integral_R_r1_cc(ra, rb, g->r3, r2, r1);
             R2 = (r1<r2) ? integral_R_r2_cc(ra, rb, g->r3, r1, r2) : integral_R_r2_cc(ra, rb, g->r3, r2, r1);
             RA = (r1<r2) ? integral_R_rp_cc2(ra, rb, g->r3, rp, r1, r2) : integral_R_rp_cc2(ra, rb, g->r3, rp, r2, r1);
-            RB = (r1<r2) ? integral_R_rp_cc2(ra, rb, g->r3, rm, r1, r2) : integral_R_rp_cc2(ra, rb, g->r3, rm, r2, r1);
+            // the inner-horizon term vanishes at zero spin; do not evaluate its singular primitive.
+            RB = a2==0.0 ? 0.0 : (r1<r2) ? integral_R_rp_cc2(ra, rb, g->r3, rm, r1, r2) : integral_R_rp_cc2(ra, rb, g->r3, rm, r2, r1);
             A = (-g->a*g->l+4.)*rp - 2.*a2;
             B = (+g->a*g->l-4.)*rm + 2.*a2;
             time += 4.*fabs(R0) + 2.*fabs(R1) + fabs(R2) + (A*fabs(RA) + B*fabs(RB))/sqrt(1.-a2);
@@ -652,80 +751,50 @@ double geodesic_timedelay(geodesic *g, double P1, double r1, double m1, double P
             break;
 
         case GEOD_TYPE_CC:
-            #ifndef CUDA
-            error("(geodesic_timedelay): not implemented for GEOD_TYPE_CC");
-            #endif
-            return NAN;
+            // no radial turning point. Integrate Eq. (19) in log(r-r_h)
+            // to resolve both near-horizon and large-radius endpoints.
+            // the polar contribution is added below, including q<0.
+            time=fabs(geodesic_priv_cc_integral(g,log(r1-rp),log(r2-rp),1));
+            if (!isfinite(time)) return NAN;
+            break;
+
     }
 
-    /*
+    // add the polar part of coordinate time; the radial primitives do not contain it.
+    // fold the q>0 trajectory through each polar bounce and infer its direction from
+    // the supplied endpoints, retaining the existing RR/RC phase convention.
+    if ((g->a != 0.0) && (g->q > 0.0) && (g->Tpp > 0.0)) {
+        double Tpp  = g->Tpp;
+        double Vpp  = 2.0*integral_T_m2(g->m2m, g->m2p, 0.0);
+        double P    = fabs(P2-P1);
+        double tau1 = theta_int(m1);
+        double psi1 = geodesic_priv_vphase(g, m1);
+        double best = 0.0, best_miss = -1.0;
+        int    s;
 
-    // part 2 - T integral
-    // TODO it should be checked if that works for photons with m2m<0
-    double time_pp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0)*2;        // M-integral from -mu_plus to +mu_plus
-    double time_m1 = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, fabs(m1));     // M-integral from m1 to +mu_plus
-    double time_m2 = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, fabs(m2));     // M-integral from m2 to +mu_plus
-
-    double dP = P2-P1;
-
-    while (T >= g->Tpp) {
-        T    -= g->Tpp;
-        time += time_pp;
-    }
-    
-    if (T > g->Tpp/2) {
-        time += fabs(time_m2 - time_m1);
-    } else {
-        time += fabs(time_m2 - time_m1);
-    }
-    
-    
-    double sign_dm = (g->beta>=0.0) ? +1.0 : -1.0;
-    if (sign_dm > 0.0) {
-        T = -(g->Tpp-g->Tip);
-        time -= time_pp-time_ip;
-    } else {
-        T = -g->Tip;
-        time -= time_ip;
-    }
-
-    while (fabs(P2-P1) >= T+g->Tpp) {
-        T += g->Tpp;
-        time += time_pp;
-        sign_dm = -sign_dm;
-        break;
+        for (s=0; s<2; s++) {
+            double dir = s ? -1.0 : +1.0;
+            double xi  = tau1 + dir*P;
+            double n   = floor(xi/Tpp);
+            double r   = xi - n*Tpp;
+            long   odd = (((long)n) % 2 + 2) % 2;
+            double tf  = odd ? (Tpp - r) : r;
+            double me  = theta_inv(tf);
+            double V   = geodesic_priv_vphase(g, me);
+            double psi2 = n*Vpp + (odd ? (Vpp - V) : V);
+            double miss = fabs(me - m2);
+            if ((best_miss < 0.0) || (miss < best_miss)) {
+                best_miss = miss;
+                best = g->a * fabs(psi2 - psi1);
+            }
+        }
+        if (isfinite(best)) time += best;
     }
 
-    time += (sign_dm<0) ? time_mp : time_pp-time_mp;
-*/
+    // preserve the actual dn phase for vortical rays, including complete oscillations.
+    if (g->q<0.0) time+=geodesic_priv_vortical_time(g,P1,P2);
     return time;
 
-/*
-old:
-    double Tmp = g->mK*elliptic_k(g->mm);
-    double Tmo = g->mK*jacobi_icn(g->cos_i/sqrt(g->m2p),g->mm);
-    double Pmp = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, 0.0);
-    double Pmo = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, g->cos_i);
-    double Pme = sqr(g->a)*integral_T_m2(g->m2m, g->m2p, fabs(mu_e));
-    // TODO it should be checked if that works for photons with m2m<0
-
-
-    x += (g->beta>=0.0) ? Tmp-Tmo : Tmo;                             // shift T to the nearest higher \mu=0 or \mu=\mu_plus
-    T -= (g->beta>=0.0) ? Pmp-Pmo : Pmo;
-    int k = (g->beta>=0.0) ? 3 : 0;
-    while (x >= Tmp) {
-        x -= Tmp;
-        T += Pmp;
-        k++;
-    }
-    switch(k%4) {
-        case 0: T += Pme; break;
-        case 1: T += Pmp-Pme; break;
-        case 2: T += Pme; break;
-        case 3: T += Pmp-Pme; break;
-    }
- */
-    return time;
 }
 
 
@@ -982,37 +1051,43 @@ double geodesic_priv_TT(geodesic *g, double m)
 
 DEVICEFUNC
 int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
-// find roots of the R-integral
-// http://adsabs.harvard.edu/abs/1998NewA....3..647C (http://web.oapd.inaf.it/calvani/cadez.ps)
+//! Initialize the radial root classification and positional-integral coefficients.
+//! @param g geodesic with a,l,q already initialized; roots and branch data are outputs
+//! @param r0 source radius used to distinguish the outer and inner four-root regions
+//! @param error optional output error code on failure
+//! @result TRUE for a supported radial branch, FALSE for invalid or degenerate roots.
+//! Real roots are bracketed before the remaining complex roots are reconstructed.
 {
     double a  = g->a;
     double l  = g->l;
     double q  = g->q;
     double a2 = sqr(a);
     double l2 = sqr(l);
-    double A,B,C,D,E,F,X,Z,z;
-
-    // calculate roots of R(r) after Cadez et al (1998)
-    C = sqr(a-l)+q;
-    D = 2./3.*(q+l2-a2);
-    E = 9./4.*sqr(D)-12.*a2*q;
-    F = -27./4.*sqr3(D)-108.*a2*q*D+108.*sqr(C);
-    X = sqr(F)-4.*sqr3(E);
-    if (X >= 0) {
-        A = (F>sqrt(X)?+1:-1)*1./3.*pow(fabs(F-sqrt(X))/2.,1./3.)+ (F>-sqrt(X)?+1:-1)*1./3.*pow(fabs(F+sqrt(X))/2.,1./3.);
+    // bracket real roots before reconstructing any complex pair.
+    geod_equations eq={a,l,q,a2-l2-q,q+sqr(l-a),a2*q};
+    double real[4];
+    g->nrr=geodesic_priv_radial_roots(&eq,real);
+    if (g->nrr==4) {
+        g->r1=makeComplex(real[3],0.0); g->r2=makeComplex(real[2],0.0);
+        g->r3=makeComplex(real[1],0.0); g->r4=makeComplex(real[0],0.0);
+    } else if (g->nrr==2) {
+        // recover the conjugate pair from coefficient identities after fixing the real roots.
+        g->r1=makeComplex(real[1],0.0); g->r2=makeComplex(real[0],0.0);
+        double u=-(real[0]+real[1])/2.0;
+        double v2=eq.A-real[0]*real[1]+3.0*u*u;
+        if (!(v2>0.0)) { if (error) *error=GD_ERROR_NUMERICAL; return FALSE; }
+        g->r3=makeComplex(u,sqrt(v2)); g->r4=conj(g->r3);
+    } else if (g->nrr==0) {
+        // with no real roots there is no large/small real-root cancellation.
+        int nr;
+        quartic_eq_c(0.0,eq.A,2.0*eq.B,-eq.C,&nr,&g->r1,&g->r2,&g->r3,&g->r4);
+        if (nr!=0) { if (error) *error=GD_ERROR_NUMERICAL; return FALSE; }
     } else {
-         Z = sqrt(pow(F/54.,2) + pow(sqrt(-X)/54.,2));
-         z = atan2(sqrt(-X)/54.,F/54.);
-         A = pow(Z,1./3.)*2.*cos(z/3.);
+        if (error) *error=GD_ERROR_TYPE_RR_DOUBLE;
+        return FALSE;
     }
-    B = sqrt(A+D);
-    g->r1 = +B/2. + .5*csqrt(makeComplex(-A+2.*D-4.*C/B,0.0));
-    g->r2 = +B/2. - .5*csqrt(makeComplex(-A+2.*D-4.*C/B,0.0));
-    g->r3 = -B/2. + .5*csqrt(makeComplex(-A+2.*D+4.*C/B,0.0));
-    g->r4 = -B/2. - .5*csqrt(makeComplex(-A+2.*D+4.*C/B,0.0));
-    sort_roots(&g->nrr, &g->r1, &g->r2, &g->r3, &g->r4);
 
-    // trajectory type
+    // classify the allowed radial region containing the source.
     switch (g->nrr) {
         case 4:
             g->type = GEOD_TYPE_RR;
@@ -1044,8 +1119,8 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
             return FALSE;
     }
 
-    // set radius of turning point and integral value at turning point
-    double r1,r2,r3,r4,u,v,mm;
+    // prepare the branch constants needed by the existing positional integrals.
+    double r1,r2,r3,r4,u,v,mm,A,B;
     switch (g->type) {
         case GEOD_TYPE_RR:
             r1 = creal(g->r1);
@@ -1080,19 +1155,11 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
             break;
 
         case GEOD_TYPE_CC:
-            r1 = creal(g->r1);   //b1
-            r2 = creal(g->r3);   //b2
-            r3 = cimag(g->r1);   //a1
-            r4 = cimag(g->r3);   //a2
-            A = sqrt(sqr(r1-r2) + sqr(r3+r4));
-            B = sqrt(sqr(r1-r2) + sqr(r3-r4));
-            double g1 = sqrt((4.*sqr(r3)-sqr(A-B))/(sqr(A+B)-4.*sqr(r3)));
-            mm = 4.*A*B/sqr(A+B);
-            g->rp  = r1 - r3*g1;
-            if (g->rp > r_bh(g->a)) warning("geodesic_priv_R_roots(): g->rp > r_bh(g->a)");
-            g->Rpc = 2./(A+B) * jacobi_itn(-1./g1, mm);
+            // no real root means no pericenter or finite turning-point integral.
+            g->rp=-INFINITY;
+            g->Rpc=INFINITY;
             break;
-        
+
         default:
             return FALSE;
     }
@@ -1106,14 +1173,27 @@ int geodesic_priv_R_roots(geodesic *g, double r0, int *error)
 
 DEVICEFUNC
 int geodesic_priv_T_roots(geodesic *g, double m, int *error)
-// T integral roots
-// M(m) = q + (a2 - l2 - q)m2 - a2*m4 = -a2*(m4 + m2*(q + l2 -a2)/a2 - q/a2) = a2(m2m+m2)(m2p-m2)
+//! Initialize polar turning points and the Jacobi phase scaling.
+//! @param g geodesic with a,l,q initialized; root and elliptic parameters are outputs
+//! @param m source or observer cos(theta), required to lie in the allowed polar range
+//! @param error optional output error code on failure
+//! @result TRUE when the polar phase is supported, FALSE for an invalid or degenerate
+//! polar potential. The Schwarzschild q>0 limit is handled without dividing by a^2.
 {
     double a  = g->a;
     double l  = g->l;
     double q  = g->q;
     double a2 = sqr(a);
     double l2 = sqr(l);
+
+    // take the Schwarzschild limit explicitly to avoid division by a squared.
+    if (a==0.0) {
+        if (!(q>0.0)) { if (error) *error=GD_ERROR_Q_RANGE; return FALSE; }
+        g->m2p=q/(q+l2); g->m2m=INFINITY; g->mm=0.0;
+        g->mK=1.0/sqrt(q+l2);
+        if (m*m>g->m2p+1e-12) { if (error) *error=GD_ERROR_MU0_RANGE; return FALSE; }
+        return TRUE;
+    }
 
     // the straightforward solution of quadratic function fails for small spins due to numerical cancelation:
     //   g->m2m = 1./(2.*a2) * ( sqrt(sqr(qla)+4.*q*a2) + qla );
@@ -1136,11 +1216,13 @@ int geodesic_priv_T_roots(geodesic *g, double m, int *error)
     g->m2p = dblq/X;
     #endif
     
-    if ((g->m2p<=0.0) || (g->m2p >= 1.0)) {
+    // allow the axis as a polar turning point, including roundoff near m squared equals one.
+    if ((g->m2p<=0.0) || (g->m2p > 1.0+1e-12)) {
         if (error) *error = GD_ERROR_MUPLUS_RANGE;
         return FALSE;
     }
 
+    // ordinary polar motion can pass through the equatorial plane.
     if (q > 0.0) {
         g->mm = g->m2p/(g->m2p+g->m2m);
 
@@ -1156,6 +1238,7 @@ int geodesic_priv_T_roots(geodesic *g, double m, int *error)
 
         g->mK = 1./sqrt(a2*(g->m2p+g->m2m));
     } else
+    // vortical motion stays between two turning points in the same hemisphere.
     if (q < 0.0) {
         g->mm = (g->m2p+g->m2m)/g->m2p;
 

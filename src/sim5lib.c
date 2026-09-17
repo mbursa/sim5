@@ -31,6 +31,7 @@
 #include "sim5polyroots.c"
 #include "sim5raytrace.c"
 #include "sim5kerr.c"
+#include "sim5kerr-geod-source.c"
 #include "sim5kerr-geod.c"
 
 #ifndef CUDA
@@ -39,5 +40,4 @@
 
 #include "sim5polarization.c"
 #include "sim5radiation.c"
-
 
