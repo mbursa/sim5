@@ -549,9 +549,11 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
 //! - uses elliptic radial integrals for RR/RC and convergent radial quadrature for CC
 //! - supports zero spin, including the exact radial Schwarzschild limit
 //! @param g initialized geodesic with its polar phase anchored at P=0
-//! @param r exterior Boyer-Lindquist radius; zero requests inference of both r and m
+//! @param r exterior Boyer-Lindquist radius; +infinity is allowed at an infinity endpoint;
+//! zero requests inference of both r and m
 //! @param m cos(theta) at P; must correspond to the same trajectory position
-//! @param P nonnegative positional integral, with P=0 denoting the reference infinity
+//! @param P nonnegative positional integral; infinity is P=0 on the initial radial leg
+//! and P=2*Rpc on the outgoing RR leg
 //! @result Signed angle in radians, without reduction modulo 2*pi; NaN for invalid
 //! or unsupported positions. For future motion with decreasing P (outgoing RC/CC),
 //! negate the difference of endpoint primitives to obtain the physical azimuth change.
@@ -565,7 +567,10 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
         r=geodesic_position_rad(g,P);
         m=geodesic_position_pol(g,P);
     }
-    if (!isfinite(r) || r<=r_bh(g->a) || !isfinite(m) || fabs(m)>=1.0) return NAN;
+    // the outgoing RR infinity is a second endpoint, distinct from the reference infinity.
+    int outgoing_infinity=isinf(r) && r>0.0 && g->type==GEOD_TYPE_RR && P==2.0*g->Rpc;
+    if ((!isfinite(r) && !outgoing_infinity) || r<=r_bh(g->a) ||
+        !isfinite(m) || fabs(m)>=1.0) return NAN;
     // zero spin has no radial frame dragging, avoiding singular horizon primitives.
     double phi=0.0, a2=sqr(g->a);
     if (g->a!=0.0) {
@@ -576,8 +581,11 @@ double geodesic_position_azm(geodesic *g, double r, double m, double P)
                 // reverse the radial leg after pericenter while keeping P increasing.
                 double sign=P>g->Rpc ? 1.0 : -1.0;
                 double r3=creal(g->r3), r4=creal(g->r4);
-                A=integral_R_rp_re_inf(r1,r2,r3,r4,rp)+sign*integral_R_rp_re(r1,r2,r3,r4,rp,r);
-                B=integral_R_rp_re_inf(r1,r2,r3,r4,rm)+sign*integral_R_rp_re(r1,r2,r3,r4,rm,r);
+                A=integral_R_rp_re_inf(r1,r2,r3,r4,rp);
+                B=integral_R_rp_re_inf(r1,r2,r3,r4,rm);
+                // both radial legs have their full integral at the escaping infinity.
+                A=outgoing_infinity ? 2.0*A : A+sign*integral_R_rp_re(r1,r2,r3,r4,rp,r);
+                B=outgoing_infinity ? 2.0*B : B+sign*integral_R_rp_re(r1,r2,r3,r4,rm,r);
                 phi=(A*(g->a*rp-g->l*a2/2.0)-B*(g->a*rm-g->l*a2/2.0))/sqrt(1.0-a2);
                 break;
             }
@@ -1179,7 +1187,10 @@ int geodesic_priv_T_roots(geodesic *g, double m, int *error)
 //! @param error optional output error code on failure
 //! @result TRUE when the polar phase is supported, FALSE for an invalid or degenerate
 //! polar potential. The Schwarzschild q>0 limit is handled without dividing by a^2.
+//! The Kerr polar-range check allows four relative machine epsilons of endpoint
+//! roundoff; inverse polar phases clamp these endpoint excursions before evaluation.
 {
+    // retain the motion constants while constructing the polar turning points.
     double a  = g->a;
     double l  = g->l;
     double q  = g->q;
@@ -1231,7 +1242,9 @@ int geodesic_priv_T_roots(geodesic *g, double m, int *error)
             return FALSE;
         }
         
-        if (fabs(m) > sqrt(g->m2p)) {
+        // independently rounded source and turning point can differ by a few ulps.
+        double mu=fabs(m), mu_plus=sqrt(g->m2p);
+        if (mu-mu_plus > 4.0*DBL_EPSILON*fmax(mu,mu_plus)) {
             if (error) *error = GD_ERROR_MU0_RANGE;
             return FALSE;
         }
@@ -1247,7 +1260,10 @@ int geodesic_priv_T_roots(geodesic *g, double m, int *error)
             return FALSE;
         }
 
-        if ((fabs(m) > sqrt(g->m2p)) || (fabs(m) < sqrt(-g->m2m))) {
+        // accept only endpoint roundoff at either boundary of the vortical band.
+        double mu=fabs(m), mu_plus=sqrt(g->m2p), mu_minus=sqrt(-g->m2m);
+        if (mu-mu_plus > 4.0*DBL_EPSILON*fmax(mu,mu_plus) ||
+            mu_minus-mu > 4.0*DBL_EPSILON*fmax(mu,mu_minus)) {
             if (error) *error = GD_ERROR_MU0_RANGE;
             return FALSE;
         }
